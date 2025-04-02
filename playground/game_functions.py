@@ -40,17 +40,17 @@ def game_interaction():
        game.initialize_board()
        
        # Who starts?
-        pepper_cmd.robot.say("Let's decide who starts. Say even or odd.")
-        response = get_user_input("Say even or odd", ["even", "odd"])
-        if response:
-            player_starts = random.choice([True, False])
-            if player_starts:
-                pepper_cmd.robot.say("You start!")
-            else:
-                pepper_cmd.robot.say("I start!")
+       pepper_cmd.robot.say("Let's decide who starts. Say even or odd.")
+       response = get_user_input("Say even or odd", ["even", "odd"])
+       if response:
+           player_starts = random.choice([True, False])
+           if player_starts:
+               pepper_cmd.robot.say("You start!")
+           else:
+               pepper_cmd.robot.say("I start!")
         
         # Game loop
-        while np.any(game.board != 0):
+       while np.any(game.board != 0):
             if player_starts:
                 player_turn()
                 player_starts = False
@@ -59,9 +59,9 @@ def game_interaction():
                 player_starts = True        
         
         # End of game
-        if game.user_score >  game.robot_score:
-           pepper_cmd.robot.say("You win! Congratulations!")
-        elif game.user_score < game.robot_score:
-            pepper_cmd.robot.say("I win! Better luck next time.")
-        else:
-            pepper_cmd.robot.say("It's a tie! Good game.")    
+       if game.user_score >  game.robot_score:
+          pepper_cmd.robot.say("You win! Congratulations!")
+       elif game.user_score < game.robot_score:
+           pepper_cmd.robot.say("I win! Better luck next time.")
+       else:
+           pepper_cmd.robot.say("It's a tie! Good game.")   
