@@ -1,18 +1,14 @@
-
 import json
-
 import os
 import sys
 import time
-import qi # Assuming qi library is Python 2 compatible for your setup
+import qi 
 from datetime import datetime
-#from game_functions import * # Your commented-out import
 sys.path.append(os.getenv('PEPPER_TOOLS_HOME')+'/cmd_server')
 
 import pepper_cmd
 from pepper_cmd import *
 
-# --- Tornado and Standard Lib Imports ---
 import threading
 import webbrowser
 try:
@@ -35,32 +31,47 @@ import mimetypes # For guessing file types
 motion_service = None
 
 # Queue for communication between web server thread and main thread
-# This is necessary for the game communication
 game_result_queue = Queue()
 
-# --- Tornado Server Code (Minimal Logging) ---
+# Global variable to hold the passion identified during interaction
+# Needs to be accessible by the WebSocket handler when a connection opens
+selected_passion = None # Initialize as None
+
+# --- Tornado Server Code
 
 # Websocket server handler
 class WebSocketServer(tornado.websocket.WebSocketHandler):
+    # Store clients if needed for broadcasting, but not strictly necessary for this theme setup
+    clients = set()
+
     def open(self):
         print ('WebSocket connection opened') # Minimal log
-        global selected_passion 
         WebSocketServer.clients.add(self)
-        # --- SEND THEME IMMEDIATELY ON CONNECTION ---
-        theme_message = "theme {}".format(selected_passion)
-        print("Sending theme to client: {}".format(theme_message))
-        try:
-            self.write_message(theme_message)
-        except Exception as e:
-            print("Error sending theme message: {}".format(e))
-        # --- END SEND THEME --- 
+        global selected_passion # Access the global variable
 
-    def send(self, string): # Kept for potential future use
-        if not self.ws_connection: return
+        # --- SEND THEME IMMEDIATELY ON CONNECTION ---
+        if selected_passion: # Only send if passion has been determined
+            theme_message = "theme {}".format(selected_passion)
+            print("Sending theme to client: {}".format(theme_message))
+            try:
+                self.write_message(theme_message)
+            except Exception as e:
+                print("Error sending theme message: {}".format(e))
+        else:
+            print("Warning: WebSocket opened, but selected_passion is not yet set.")
+            # Optionally send a default or wait message?
+            # self.write_message("theme default") # Or similar if you have default images
+        # --- END SEND THEME ---
+
+    def send(self, string): 
+
         try:
             self.write_message(string)
         except tornado.websocket.WebSocketClosedError:
              pass # Ignore if closed
+        except AttributeError:
+             print("Warning: Tried to send via send() but connection might not be ready.")
+
 
     def on_message(self, message):
         global game_result_queue # Access the global queue
@@ -78,27 +89,44 @@ class WebSocketServer(tornado.websocket.WebSocketHandler):
 
     def on_close(self):
         print ('WebSocket connection closed')# Minimal log
+        WebSocketServer.clients.remove(self)
+
 
     def check_origin(self, origin):
         # Allow connections from any origin for local development
         return True
 
-# Generic File Handler (Minimal Logging)
+# Generic File Handler 
 class FileHandler(tornado.web.RequestHandler):
     def get(self, fname):
         try:
             source_path = os.path.abspath(inspect.getsourcefile(lambda:0))
             source_dir = os.path.dirname(source_path)
-            fname_path = os.path.join(source_dir, fname)
+            # Construct path relative to the script directory
+            fname_path = os.path.abspath(os.path.join(source_dir, fname)) # Use abspath for safety
 
-            if not os.path.abspath(fname_path).startswith(source_dir):
+            # Security check: Ensure the requested path is within the source directory
+            if not fname_path.startswith(source_dir):
                 raise tornado.web.HTTPError(403, "Access denied: {}".format(fname))
+
             if not os.path.isfile(fname_path):
-                 raise tornado.web.HTTPError(404, "File not found: {}".format(fname))
+                 # Try adding 'images/' prefix if not found directly (for image paths)
+                 img_path = os.path.abspath(os.path.join(source_dir, 'images', fname))
+                 if fname.startswith('images/') and os.path.isfile(img_path):
+                      fname_path = img_path
+                 elif os.path.isfile(os.path.join(source_dir, 'images/fruit_images', fname.split('/')[-1])): # Quick check for fruits subdir
+                     fname_path = os.path.join(source_dir, 'images/fruit_images', fname.split('/')[-1])
+                 elif os.path.isfile(os.path.join(source_dir, 'images/music_images', fname.split('/')[-1])): # Quick check for music subdir
+                     fname_path = os.path.join(source_dir, 'images/music_images', fname.split('/')[-1])
+                 elif os.path.isfile(os.path.join(source_dir, 'images/gardening_images', fname.split('/')[-1])): # Quick check for gardening subdir
+                     fname_path = os.path.join(source_dir, 'images/gardening_images', fname.split('/')[-1])
+                 else:
+                     raise tornado.web.HTTPError(404, "File not found: {}".format(fname))
+
 
             content_type, encoding = mimetypes.guess_type(fname_path)
             if content_type: self.set_header("Content-Type", content_type)
-            else: self.set_header("Content-Type", "application/octet-stream")
+            else: self.set_header("Content-Type", "application/octet-stream") # Default if type unknown
 
             with open(fname_path, "rb") as f:
                 data = f.read()
@@ -106,23 +134,35 @@ class FileHandler(tornado.web.RequestHandler):
             self.finish()
         except tornado.web.HTTPError as e:
              self.send_error(e.status_code)
+             print("HTTP Error {} serving file {}: {}".format(e.status_code, fname, e.log_message))
         except Exception as e:
              print "Error serving file {}: {}".format(fname, e) # Log file serving errors
              self.send_error(500)
 
 def make_app():
+    # Define routes - ensure image paths are handled
+    # The (.*) captures the full path requested by the browser
     return tornado.web.Application([
         (r'/ws', WebSocketServer),
-        (r"/(index\.html)", FileHandler),
-        (r"/(.*\.(?:html|js|css|jpg|jpeg|png|gif|ico))", FileHandler),
-        (r"/images/(.*\.(?:html|js|css|jpg|jpeg|png|gif|ico))", FileHandler),
-    ])
+        (r"/(index\.html)", FileHandler, {'path': '.'}), # Serve index.html from root
+        (r"/(script\.js)", FileHandler, {'path': '.'}),   # Serve script.js from root
+        (r"/(style\.css)", FileHandler, {'path': '.'}),   # Serve style.css from root
+        # Catch-all for other files, including those in subdirectories like 'images'
+        (r"/(.*\.(?:js|css|jpg|jpeg|png|gif|ico))", FileHandler, {'path': '.'}),
+    ],
 
-# --- Function to run the Tornado server (Minimal Logging) ---
+    )
+
+
+# --- Function to run the Tornado server ---
 def run_tornado_server():
     """Starts the Tornado IOLoop."""
     try:
+        # Ensure we're serving from the script's directory for relative paths
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        os.chdir(script_dir)
         print("Starting web server for game on http://localhost:8888") # Essential info
+        print("Serving files from: {}".format(script_dir))
         app = make_app()
         app.listen(8888)
         tornado.ioloop.IOLoop.current().start()
@@ -132,7 +172,6 @@ def run_tornado_server():
         print "[Server Error] Failed to start web server: {}".format(e)
 
 
-# --- Your Original Pepper Code (Functions restored to original form) ---
 
 TRUST_THRESHOLD = 3
 
@@ -151,14 +190,13 @@ USER_DATABASE = {
     },
     "carlo": {
         "passion": "music",
-        "greeting": "Hello Carlo! The music lover. We have a fruit memory game for you today!"
+        "greeting": "Hello Carlo! The music lover. We have a music memory game for you today!" # Updated greeting
     },
     "paolo": {
         "passion": "gardening",
-        "greeting": "Paolo! The gardening enthusiast. How about a fruit matching game?"
+        "greeting": "Paolo! The gardening enthusiast. How about a gardening matching game?" # Updated greeting
     }
 }
-
 
 
 class ProxemicsSimulator:
@@ -186,7 +224,7 @@ class ProxemicsSimulator:
         return float(self.current_distance) < float(self.ZONES['personal'][0])
 
 def move_forward(distance):
-    # Minimal printing - just log errors
+    # ... (move_forward code remains the same) ...
     try:
         motion_service = pepper_cmd.robot.session.service("ALMotion")
         motion_service.moveTo(distance, 0, 0)
@@ -196,7 +234,7 @@ def move_forward(distance):
 
 
 def move_to_zone(target_zone, current_zone):
-    # Minimal printing - just log errors or invalid states
+    # ... (move_to_zone code remains the same) ...
     zone_distances = {'public': 3.6, 'social': 1.5, 'personal': 0.8, 'intimate': 0.3}
     target_distance = zone_distances.get(target_zone)
     current_dist = zone_distances.get(current_zone)
@@ -206,44 +244,34 @@ def move_to_zone(target_zone, current_zone):
     movement = float(current_dist) - float(target_distance)
     if abs(movement) > 0.05:
         move_forward(movement)
-    # No success prints
 
-# --- THIS IS YOUR ORIGINAL INPUT FUNCTION ---
 def get_user_input(categories=None):
-    """Reads input from the terminal, performs basic validation"""
+    # ... (get_user_input code remains the same) ...
     while True:
         try:
-            # Use raw_input() for Python 2
-            response = raw_input("Your response: ").strip().lower() # Simple prompt
-
-            if not response: # Handle empty input
-                print("I didn't catch that. Please try again.") # Use Pepper-like voice
+            response = raw_input("Your response: ").strip().lower()
+            if not response:
+                print("I didn't catch that. Please try again.")
                 continue
-
             if categories:
                 matched = False
-                # Check each category's keywords
                 for category in categories:
                     for keyword in VOCABULARY.get(category, []):
                         if keyword in response:
-                            return keyword # Return the standardized keyword
-                # If no keywords matched in specified categories
+                            return keyword
                 if not matched:
                     print("I didn't understand that. Could you please rephrase? (Expected: {})".format(', '.join(c for c in categories)))
-                    # Provide hint about expected categories
-            else: # No filtering, return raw input
+            else:
                 return response
-
         except (EOFError, KeyboardInterrupt):
             print("\nExiting...")
             sys.exit(0)
         except Exception as e:
             print("An error occurred reading input: {}".format(e))
             sys.exit(1)
-# --- END OF YOUR ORIGINAL INPUT FUNCTION ---
 
 def wave_hello():
-    # Minimal printing - just log errors
+    # ... (wave_hello code remains the same) ...
     try:
         motion_service = pepper_cmd.robot.session.service("ALMotion")
         motion_service.wakeUp()
@@ -252,12 +280,11 @@ def wave_hello():
         angles = [0.0, -0.2, 1.0, 1.0, 0.0]
         times = [1.0, 1.0, 1.0, 1.0, 1.0]
         motion_service.angleInterpolation(names, angles, times, True)
-        # motion_service.setStiffnesses("RArm", 0.0) # Done in reset_arm
     except Exception as e:
         print("Error during wave_hello: {}".format(e))
 
 def reset_arm():
-    # Minimal printing - just log errors
+    # ... (reset_arm code remains the same) ...
     try:
         motion_service = pepper_cmd.robot.session.service("ALMotion")
         motion_service.setStiffnesses("RArm", 1.0)
@@ -271,8 +298,8 @@ def reset_arm():
 
 
 def say(text):
-    """Wrapper for Pepper saying something, prints to console"""
-    print("Pepper says: {}".format(text)) # This IS the intended output
+    # ... (say code remains the same) ...
+    print("Pepper says: {}".format(text))
     try:
         pepper_cmd.robot.say(text)
     except Exception as e:
@@ -280,7 +307,7 @@ def say(text):
 
 
 def assess_confusion():
-    # Uses say() and get_user_input() - no extra prints needed
+    # ... (assess_confusion code remains the same) ...
     questions = [
         "Do you know what day it is today?",
         "Can you tell me where we are right now?",
@@ -293,10 +320,10 @@ def assess_confusion():
         if "not sure" in response or "no" in response:
             confusion_score += 1
         time.sleep(1)
-    return confusion_score > 1 # Return boolean
+    return confusion_score > 1
 
 def build_trust():
-    # Uses say() and get_user_input() - no extra prints needed
+    # ... (build_trust code remains the same) ...
     trust_points = 0
     greetings = [
         "Is it a good day?",
@@ -308,16 +335,14 @@ def build_trust():
         response = get_user_input(["feelings", "yes_no"])
         if response in VOCABULARY["feelings"] or response in VOCABULARY["yes_no"]:
              trust_points += 1
-        # Keep the empathetic responses
         if response in ["bad", "not great"]:
             say("I'm sorry to hear that. I hope I can help!")
         elif response in ["fine", "good", "you too"]:
              say("Happy to hear that!")
         time.sleep(1)
-    return trust_points >= TRUST_THRESHOLD # Return boolean
+    return trust_points >= TRUST_THRESHOLD
 
-
-# --- Main Interaction Flow (Minimal Prints, uses original functions) ---
+# --- Main Interaction Flow  ---
 def interaction_flow():
     # Start the Tornado server thread
     server_thread = threading.Thread(target=run_tornado_server)
@@ -329,18 +354,17 @@ def interaction_flow():
     def begin_dummy(): pass
     def end_dummy(): pass
     global begin, end
+    # **** Make selected_passion global ****
     global selected_passion
     begin = begin_dummy
     end = end_dummy
 
     try:
-        # --- Pepper Connection (Minimal Prints) ---
+        # --- Pepper Connection ---
         try:
-            # print("Attempting Pepper connection...") # Optional log
             pepper_cmd.begin()
             begin = pepper_cmd.begin
             end = pepper_cmd.end
-            # print("Pepper connection successful.") # Optional log
             global motion_service
             motion_service = pepper_cmd.robot.session.service("ALMotion")
         except Exception as e:
@@ -349,9 +373,9 @@ def interaction_flow():
             motion_service = None
         # --- End Pepper Connection ---
 
-        proxemics = ProxemicsSimulator() # Your simulator class
+        proxemics = ProxemicsSimulator()
 
-        # --- Behavior Manager (No changes needed - uses Dummy if fails) ---
+        # --- Behavior Manager (No changes needed) ---
         try:
              if pepper_cmd.robot and pepper_cmd.robot.session:
                  behavior_manager = pepper_cmd.robot.session.service("ALBehaviorManager")
@@ -364,69 +388,70 @@ def interaction_flow():
              behavior_manager = DummyBehaviorManager()
         # --- End Behavior Manager ---
 
-        print("\n=== Starting Interaction ===") # Your original start message?
+        print("\n=== Starting Interaction ===")
         proxemics.set_distance(4.0)
-        # print("Current zone:", proxemics.get_zone()) # Removed extra print
 
         wave_hello()
-        say("Hello there! May I approach you?") # Uses say()
+        say("Hello there! May I approach you?")
         reset_arm()
-        response = get_user_input(["yes_no"]) # Uses get_user_input()
+        response = get_user_input(["yes_no"])
 
         if "yes" in response:
             move_to_zone('social', proxemics.get_zone())
             proxemics.set_distance(1.5)
-            # print("Current zone:", proxemics.get_zone()) # Removed extra print
 
             say("What's your name?")
-            response = get_user_input(["names"])
+            user_name = get_user_input(["names"]) # Store name
 
-            if response in USER_DATABASE:
-                selected_passion = USER_DATABASE[response]["passion"]
-                selected_greeting = USER_DATABASE[response]["greeting"]
-            print(selected_passion)
+            # **** Set the global selected_passion ****
+            if user_name in USER_DATABASE:
+                selected_passion = USER_DATABASE[user_name]["passion"]
+                selected_greeting = USER_DATABASE[user_name]["greeting"]
+                print("Identified user: {}, Passion: {}".format(user_name, selected_passion)) # Log
+                say(selected_greeting) # Use the specific greeting
+            else:
+                # Handle unknown user - maybe assign a default passion or ask?
+                selected_passion = "fruits" # Default to fruits if name not found
+                print("User '{}' not in database. Defaulting passion to '{}'".format(user_name, selected_passion))
+                say("Hello {}! Nice to meet you. We have a fruit memory game today.".format(user_name))
 
-
-            data = {"message":selected_passion}
-            print(data)
-            with open('data.json', 'w') as f:
-                json.dump(data, f)
-
-
-            if build_trust(): # Uses build_trust()
-                # print("Trust established.") # Removed extra print
+            if build_trust():
                 move_to_zone('personal', proxemics.get_zone())
                 proxemics.set_distance(0.8)
-                # print("Current zone:", proxemics.get_zone()) # Removed extra print
 
+                # ... (rest of the behavior starting logic remains the same) ...
                 behavior_name = "move_head_yesno-173088/behavior_1"
                 if behavior_manager.isBehaviorInstalled(behavior_name):
-                    behavior_manager.startBehavior(behavior_name)
-                    # print("Game behavior started!") # Removed extra print
-                #else:
-                    # print("Game behavior not found!") # Removed extra print
+                    try:
+                        behavior_manager.startBehavior(behavior_name)
+                    except Exception as e:
+                        print("Error starting behavior {}: {}".format(behavior_name, e))
 
-                if not assess_confusion(): # Uses assess_confusion()
-                    # print("User appears oriented") # Removed extra print
-                    say("Would you like to play a memory game?") # Uses say()
-                    response = get_user_input(["yes_no"]) # Uses get_user_input()
+
+                if not assess_confusion():
+                    # Ask based on the determined passion
+                    say("Since you like {}, would you like to play a {} memory game?".format(selected_passion, selected_passion))
+                    response = get_user_input(["yes_no"])
 
                     if "yes" in response:
-                        # print("\n=== STARTING GAME ===") # Removed extra print
-                        wave_hello() # Wave again before game starts
-                        say("Great! Let's play the game.") # Uses say()
+                        wave_hello()
+                        say("Great! Let's play the {} game.".format(selected_passion))
 
-                        # --- Open the web browser (Tornado serves on 8888) ---
-                        game_url = 'file:///home/alessia/playground/index.html'
+                        # --- Open the web browser ---
+                        # Ensure the path is correct for your system
+                        script_dir = os.path.dirname(os.path.abspath(__file__))
+                        # Use file:// URI scheme for local files
+                        game_url = 'file://' + os.path.join(script_dir, 'index.html')
+                        print("Opening game URL: {}".format(game_url))
+
                         try:
-                            webbrowser.open(game_url, new=2)
+                            webbrowser.open(game_url, new=2) # new=2 opens in a new tab if possible
                         except Exception as e:
                             print("Error opening web browser: {}".format(e))
                             say("I couldn't open the game automatically, sorry.")
 
-                        # --- Wait for game result from WebSocket via Queue ---
-                        # say("Let me know how you do! I'll be waiting.") # Optional line
-                        print("Waiting for game result...") # Simple status
+                        # --- Wait for game result ---
+                        print("Waiting for game result...")
                         game_outcome = None
                         try:
                             game_outcome = game_result_queue.get(timeout=900) # 15 min timeout
@@ -438,67 +463,67 @@ def interaction_flow():
 
                         # --- React to game result ---
                         if game_outcome == "win":
-                            # **** THE DESIRED REACTION ****
-                            say("Oh wow! You are very strong!") # Uses say()
-                            # ******************************
+                            say("Oh wow! You are very strong!")
                         else:
-                            # Optional: Add reactions for lose/tie
-                            # print("Game finished.") # Removed extra print
-                            say("Good game!") # Uses say()
+                            say("Good game!")
 
                         time.sleep(3)
                         move_to_zone('social', proxemics.get_zone())
                         proxemics.set_distance(1.5)
-                        # print("Current zone:", proxemics.get_zone()) # Removed extra print
 
                     else: # User doesn't want to play
-                        say("Maybe another time then.") # Uses say()
+                        say("Maybe another time then.")
                         move_to_zone('social', proxemics.get_zone())
                 else: # User appears confused
-                    say("Let me get a human assistant for you.") # Uses say()
+                    say("Let me get a human assistant for you.")
                     move_to_zone('public', proxemics.get_zone())
             else: # Trust not built
-                say("I'll give you some space.") # Uses say()
+                say("I'll give you some space.")
                 move_to_zone('public', proxemics.get_zone())
         else: # User does not want Pepper to approach
-            say("Okay, I'll stay here.") # Uses say()
+            say("Okay, I'll stay here.")
 
-        reset_arm() # Reset arm at the end of interaction branches
+        reset_arm()
 
     except KeyboardInterrupt:
-        print("\nInteraction interrupted by user.") # Minimal exit message
-        try: tornado.ioloop.IOLoop.current().stop() # Try to stop server
+        print("\nInteraction interrupted by user.")
+        try: tornado.ioloop.IOLoop.current().stop()
         except: pass
     except Exception as e:
-        print("\nAn error occurred during interaction: {}".format(e)) # Log fatal errors
+        print("\nAn error occurred during interaction: {}".format(e))
         import traceback
         traceback.print_exc()
     finally:
         # Ensure Pepper connection is closed
         try:
-            # print("Ending Pepper connection...") # Optional log
             end()
         except NameError: pass
         except Exception as e: print("Error closing Pepper connection: {}".format(e))
 
-        print("=== Interaction Complete ===") # Your original end message?
+        # Stop Tornado IOLoop if it's still running
+        try:
+            if tornado.ioloop.IOLoop.current(instance=False):
+                 tornado.ioloop.IOLoop.current().stop()
+                 print("Tornado IOLoop stopped.")
+        except Exception as e:
+             print("Error stopping Tornado: {}".format(e))
+
+
+        print("=== Interaction Complete ===")
 
 
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    os.chdir(script_dir)
-    # print("Running script from directory: {}".format(script_dir)) # Optional log
-    # print("Ensure game files (index.html, etc.) are here.") # Optional log
+    os.chdir(script_dir) # Change working directory to script dir
+    print("Running script from directory: {}".format(script_dir))
+    print("Ensure game files (index.html, script.js, style.css, images/) are here.")
     print("Starting Pepper interaction script (Python 2 / Tornado).")
 
     # Add common image types to mimetypes
-    #mimetypes.add_type("text/css", ".css")
-    #mimetypes.add_type("application/javascript", ".js")
-    #mimetypes.add_type("image/jpeg", ".jpg"); mimetypes.add_type("image/jpeg", ".jpeg")
-    #mimetypes.add_type("image/png", ".png"); mimetypes.add_type("image/gif", ".gif")
     mimetypes.add_type("text/css", ".css")
     mimetypes.add_type("application/javascript", ".js")
-    mimetypes.add_type("image/jpeg", ".jpg")
-    mimetypes.add_type("image/jpeg", ".jpeg") # Add .jpeg just in case
+    mimetypes.add_type("image/jpeg", ".jpg"); mimetypes.add_type("image/jpeg", ".jpeg")
+    mimetypes.add_type("image/png", ".png"); mimetypes.add_type("image/gif", ".gif")
+    mimetypes.add_type("image/x-icon", ".ico") # Add favicon type
 
     interaction_flow()
