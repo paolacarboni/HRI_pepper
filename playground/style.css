@@ -5,6 +5,9 @@
     --light: #FDEBD0;      /* Light apricot */
     --success: #2ECC71;    /* Emerald */
     --warning: #E74C3C;    /* Alizarin red */
+    --pepper-green: #37cc50; 
+    --pepper-light-green: #6bdd9a;
+    --pepper-dark-green: #229753;
 }
         
         * {
@@ -29,6 +32,207 @@
             padding: 2rem;
         }
         
+
+/* Pre-Intro Screen Specific Styles */
+#pre-intro-screen .logo {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    animation: 
+        color-wave 3s ease infinite;
+    /* Remove any scale/pulse animation from text */
+}
+
+/* Intro Screen Specific Styles */
+#intro-screen .logo {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: var(--pepper-green); /* Static color */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    /* No animation for intro screen text */
+}
+
+/* Keep all your existing animations for the image */
+.pepper-image-container {
+    animation: pulse-scale 1.5s ease infinite;
+}
+
+/* Update your color-wave animation */
+@keyframes color-wave {
+    0% { color: var(--pepper-green); }
+    25% { color: var(--pepper-light-green); }
+    50% { color: var(--pepper-dark-green); }
+    75% { color: var(--pepper-light-green); }
+    100% { color: var(--pepper-green); }
+}
+
+/* Update the animation duration (was 3s, now 6s) */
+#pre-intro-screen .logo {
+    animation: color-wave 10s linear infinite;
+}
+
+.pepper-image-container {
+    animation: pulse-scale 5s ease-in-out infinite;
+}
+
+@keyframes pulse-scale {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+/* Base screen style - transparent background */
+.screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    padding: 2rem;
+    text-align: center;
+}
+
+.screen.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.screen.hidden {
+    display: none; /* Completely remove from layout */
+}
+
+/* Animation styles remain the same */
+.pepper-image-container {
+    animation: pulse-scale 1.5s ease infinite;
+}
+
+.logo {
+    animation: color-wave 3s ease infinite;
+}
+
+
+
+/* Pulsing image animation (for both screens) */
+.pepper-image-container {
+    margin: 2rem auto;
+    max-width: 300px;
+    animation: pulse-scale 1.5s ease infinite;
+    transform-origin: center;
+}
+
+.pepper-image {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    cursor: pointer;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    transition: transform 0.3s ease;
+}
+
+@keyframes pulse-scale {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Background glow for image (both screens) */
+.pepper-image-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 110%;
+    height: 110%;
+    background: radial-gradient(circle, rgba(39,174,96,0.2) 0%, transparent 70%);
+    border-radius: 15px;
+    z-index: -1;
+    animation: glow-pulse 2s ease infinite;
+}
+
+@keyframes glow-pulse {
+    0% { opacity: 0.3; width: 110%; height: 110%; }
+    50% { opacity: 0.7; width: 120%; height: 120%; }
+    100% { opacity: 0.3; width: 110%; height: 110%; }
+}
+
+/* Intro screen specific additions */
+#intro-screen .game-invitation {
+    font-size: 1.4rem;
+    margin: 2rem 0 1.5rem;
+    color: #555;
+    animation: fade-in 0.5s ease;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#intro-screen .intro-buttons {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    animation: fade-in 0.5s ease 0.2s both;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.intro-buttons button {
+    min-width: 120px;
+    padding: 0.8rem 1.5rem;
+    font-size: 1.1rem;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.intro-buttons .start-btn {
+    background: var(--pepper-green);
+    color: white;
+    border: none;
+}
+
+.intro-buttons .back-btn {
+    background: white;
+    color: var(--pepper-green);
+    border: 2px solid var(--pepper-green);
+}
+
+
+
+
+
+
+/* Remove any existing .logo styles for intro screen */
+
+
         /* Start Screen */
         .start-screen {
             text-align: center;
@@ -516,12 +720,172 @@
 
 
 .difficulty-message {
-    color: #E74C3C; /* Red color */
+    color: #6bc913d3; /* Red color */
     font-weight: bold;
-    margin-bottom: 1.5rem;
-    min-height: 1.5rem; /* Prevent layout shift when message appears */
+    margin-bottom: 1.9rem;
+    min-height: 1.9rem; /* Prevent layout shift when message appears */
+    text-align: center;
+}
+
+
+.difficulty-message .difficulty-level {
+    color: #108838d3; /* Red color */
+    font-weight: bold;
+    margin-bottom: 2.2rem;
+    min-height: 2.2rem; /* Prevent layout shift when message appears */
     text-align: center;
 }
 
 
 
+/* Add these styles to your style.css file */
+
+
+
+
+
+
+
+
+/* Replace the gradient styles with solid colors to match .game-title */
+#start-screen .logo.fruits {
+    color: var(--primary); /* Orange */
+    background: none; /* Remove gradient */
+    -webkit-background-clip: initial;
+    background-clip: initial;
+}
+
+#start-screen .logo.music {
+    color: #3498DB; /* Blue */
+    background: none; /* Remove gradient */
+    -webkit-background-clip: initial;
+    background-clip: initial;
+}
+
+#start-screen .logo.gardening {
+    color: #27AE60; /* Green */
+    background: none; /* Remove gradient */
+    -webkit-background-clip: initial;
+    background-clip: initial;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Game title color based on passion */
+.game-title.fruits {
+    color: var(--primary); /* Orange (already defined in fruits theme) */
+}
+
+.game-title.music {
+    color: #3498DB; /* Blue */
+}
+
+.game-title.gardening {
+    color: #27AE60; /* Green */
+}
+
+/* Score label colors */
+.score-label.fruits {
+    color: #8f5e1d; /* Dark orange/brown */
+}
+
+.score-label.music {
+    color: #1A5276; /* Dark blue */
+}
+
+.score-label.gardening {
+    color: #196F3D; /* Dark green */
+}
+
+/* Score value colors */
+.score-value.fruits {
+    color: rgb(230, 126, 34); /* Orange */
+}
+
+.score-value.music {
+    color: #3498DB; /* Blue */
+}
+
+.score-value.gardening {
+    color: #27AE60; /* Green */
+}
+
+/* Message box text color */
+.message-box.fruits {
+    color: #8f5e1d; /* Dark orange/brown */
+}
+
+.message-box.music {
+    color: #1A5276; /* Dark blue */
+}
+
+.message-box.gardening {
+    color: #196F3D; /* Dark green */
+}
+
+/* Countdown number color (in help feature) */
+.countdown-number.fruits {
+    color: rgb(230, 126, 34); /* Orange */
+}
+
+.countdown-number.music {
+    color: #3498DB; /* Blue */
+}
+
+.countdown-number.gardening {
+    color: #27AE60; /* Green */
+}
+
+
+
+/* Help button styles with passion colors */
+.help-btn {
+    background: var(--secondary) !important; /* Use secondary color from theme */
+    color: white !important;
+    transition: all 0.3s ease;
+}
+
+/* Help button active/pressed states */
+.help-btn.fruits:active {
+    background: var(--primary) !important;
+    transform: translateY(2px);
+}
+
+.help-btn.music:active {
+    background: var(--primary) !important;
+    transform: translateY(2px);
+}
+
+.help-btn.gardening:active {
+    background: var(--primary) !important;
+    transform: translateY(2px);
+}
+
+/* Help button hover states */
+.help-btn.fruits:hover {
+    background: var(--primary) !important;
+}
+
+.help-btn.music:hover {
+    background: var(--primary) !important;
+}
+
+.help-btn.gardening:hover {
+    background: var(--primary) !important;
+}

@@ -10,10 +10,32 @@
 </head>
 <body>
     <div class="container">
-        <!-- Start Screen - No Scores Here -->
-        <div id="start-screen" class="start-screen">
+       
+<!-- Pre-Intro Screen -->
+<div id="pre-intro-screen" class="screen active">
+    <div class="logo" id="pre-intro-greeting">Welcome! I'm Pepper</div>
+    <div class="pepper-image-container">
+        <img src="pepper_face.png" alt="Pepper" class="pepper-image" id="pepper-image">
+    </div>
+</div>
+
+
+<!-- Intro Screen -->
+<div id="intro-screen" class="screen">
+    <div class="logo" id="intro-greeting"></div>
+    <div class="pepper-image-container">
+        <img src="pepper_face.png" alt="Pepper" class="pepper-image">
+    </div>
+    <div class="game-invitation">Are you ready to play a memory game?</div>
+    <div class="intro-buttons">
+        <button id="intro-yes-btn" class="start-btn">Yes</button>
+        <button id="intro-no-btn" class="back-btn">No</button>
+    </div>
+</div>
+
+        <div id="start-screen" class="start-screen hidden">
             <div class="logo">Memory </div>
-            <div class="subtitle">Match the pairs to win!</div>
+            <div class="subtitle">Select the difficulty and start the game!</div>
 
             <div class="difficulty-buttons">
                 <button class="difficulty-btn" data-difficulty="very-easy">Very Easy</button>
@@ -32,7 +54,7 @@
                 <div class="game-title">Memory </div>
                 <div class="score-display">
                     <div class="score-box">
-                        <div class="score-label">Player</div>
+                        <div class="score-label player-label">Player</div>
                         <div id="player-score" class="score-value">0</div>
                     </div>
                     <div class="score-box">
@@ -58,7 +80,7 @@
         <p id="end-game-message"></p>
         <div class="final-scores">
             <div class="final-score">
-                <div>Player</div>
+                <div class="player-label">Player</div>
                 <div id="final-player-score">0</div>
             </div>
             <div class="final-score">

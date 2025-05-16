@@ -1,4 +1,10 @@
-// Define image sets (existing code)
+let computerTurnTimeout = null;
+let checkMatchTimeout = null;
+
+
+// TODO: Strategy dell' accuracy del player
+
+// Define image sets 
 const imageSets = {
     fruits: {
         1: 'images/fruit_images/apple.jpg', 2: 'images/fruit_images/banana.jpg', 3: 'images/fruit_images/orange.jpg',
@@ -69,6 +75,7 @@ const themeStyles = {
 
 // **** MODIFIED: Initialize SELECTED_PASSION to null ****
 let SELECTED_PASSION = null;
+let SELECTED_NAME = null;
 
 // Game configuration
 const config = {
@@ -80,7 +87,11 @@ const config = {
         'very-hard': { rows: 5, cols: 8 }
     },
     cardImages: null, // Set later based on SELECTED_PASSION
-    cardBack: 'images/card_back.jpg',
+    cardBacks: { 
+        fruits: 'images/fruits_images/back_fruits.jpg',
+        music: 'images/music_images/back_music.jpeg',
+        gardening: 'images/gardening_images/back_gardening.jpeg'
+    },
     emptyCard: 'images/empty_card.jpg'
 };
 
@@ -102,6 +113,11 @@ let gameState = {
 
 // DOM elements
 const elements = {
+    preIntroScreen: document.getElementById('pre-intro-screen'),
+    pepperImage: document.getElementById('pepper-image'),
+    introScreen: document.getElementById('intro-screen'),
+    introYesBtn: document.getElementById('intro-yes-btn'),
+    introNoBtn: document.getElementById('intro-no-btn'),
     gameBoard: document.getElementById('game-board'),
     playerScore: document.getElementById('player-score'),
     computerScore: document.getElementById('computer-score'),
@@ -115,6 +131,8 @@ const elements = {
 
 // Screens
 const screens = {
+    preIntro: document.getElementById('pre-intro-screen'),
+    intro: document.getElementById('intro-screen'),
     start: document.getElementById('start-screen'),
     game: document.getElementById('game-screen')
 };
@@ -137,7 +155,28 @@ function connectWebSocket() {
     websocket.onmessage = function(event) {
         console.log("Message received from server: " + event.data);
 
-        if (event.data.startsWith("theme ")) {
+        if (event.data.startsWith("name ")) {
+            const receivedName = event.data.split(" ")[1];
+            SELECTED_NAME = receivedName;
+            console.log("Name set by server:", SELECTED_NAME);
+    
+            // Update all player name displays immediately
+            document.querySelectorAll('.player-label').forEach(el => {
+                el.textContent = SELECTED_NAME;
+            });
+    
+            // Update the intro greeting immediately if we're on the intro screen
+            updateIntroGreeting();
+    
+            // Also update the intro screen logo if it exists
+            if (elements.introScreen) {
+                const logoElement = elements.introScreen.querySelector('.logo');
+                if (logoElement) {
+                    logoElement.textContent = `Good to see you, ${SELECTED_NAME}!`;
+                }
+            }
+        }
+        else if (event.data.startsWith("theme ")) {
             const receivedPassion = event.data.split(" ")[1];
             // Check if theme exists in both imageSets AND themeStyles
             if (imageSets[receivedPassion] && themeStyles[receivedPassion]) {
@@ -196,33 +235,98 @@ function connectWebSocket() {
 }
 // --- End Standard WebSocket ---
 
-// **** ADDED: Function to apply theme styles ****
+
+
+
+
+function updateIntroGreeting() {
+    // Update the greeting text
+    const greetingElement = document.getElementById('intro-greeting');
+    if (greetingElement) {
+        greetingElement.textContent = SELECTED_NAME 
+            ? `Good to see you, ${SELECTED_NAME}!` 
+            :  `Good to see you!` ;
+    }
+
+    // Also update the logo in case it's different
+    const logoElement = document.querySelector('#intro-screen .logo');
+    if (greetingElement && SELECTED_NAME) {
+        logoElement.textContent = `Good to see you, ${SELECTED_NAME}!`;
+    }
+}
+
+
+
+function updateIntroScreen() {
+    const greetingElement = document.getElementById('intro-greeting');
+    if (SELECTED_NAME && greetingElement) {
+        greetingElement.textContent = `Hi ${SELECTED_NAME}!`;
+    }
+}
+
+
 function applyThemeStyles(theme) {
-    const styles = themeStyles[theme] || themeStyles.default; // Use default if theme not found
-    const root = document.documentElement; // Get the root element (<html>)
+    const styles = themeStyles[theme] || themeStyles.default;
+    const root = document.documentElement;
 
-    console.log(`Applying styles for theme: ${theme}`); // For debugging
-
-    // Iterate over the theme's style properties and set the CSS variables
     Object.keys(styles).forEach(key => {
-        const cssVarName = `--${key}`; // e.g., '--primary'
-        const cssVarValue = styles[key]; // e.g., the color code
+        const cssVarName = `--${key}`;
+        const cssVarValue = styles[key];
         root.style.setProperty(cssVarName, cssVarValue);
-        // console.log(`Set ${cssVarName} to ${cssVarValue}`); // More detailed debug
+    });
+
+    // Update theme classes on relevant elements
+    const themeClass = theme || 'default';
+    document.querySelectorAll('.game-title, .score-label, .score-value, .message-box, .countdown-number, .help-btn, #start-screen .logo').forEach(el => {
+        // Remove all theme classes
+        el.classList.remove('fruits', 'music', 'gardening', 'default');
+        // Add current theme class
+        el.classList.add(themeClass);
     });
 }
-// *******************************************
+
 
 // Function to update game titles based on SELECTED_PASSION
 function updateGameTitle() {
-    const passionTitle = SELECTED_PASSION ? SELECTED_PASSION.charAt(0).toUpperCase() + SELECTED_PASSION.slice(1) : 'Game';
+    const passionTitle = SELECTED_PASSION ? 
+        SELECTED_PASSION.charAt(0).toUpperCase() + SELECTED_PASSION.slice(1) : 'Game';
+    
     if (elements.startScreenTitle) {
-        elements.startScreenTitle.textContent = `Memory (${passionTitle})`;
-    }
-    if (elements.gameScreenTitle) {
-        elements.gameScreenTitle.textContent = `Memory (${passionTitle})`;
+        // COMPLETELY replace all classes
+        elements.startScreenTitle.className = 'logo';
+        if (SELECTED_PASSION) {
+            elements.startScreenTitle.classList.add(SELECTED_PASSION);
+        }
+        elements.startScreenTitle.textContent = `${passionTitle} Memory`;
+        
+        // DEBUG: Log the current class and computed color
+        console.log('Start Screen Title Classes:', elements.startScreenTitle.className);
+        console.log('Computed Color:', window.getComputedStyle(elements.startScreenTitle).color);
     }
 }
+
+
+function applyThemeStyles(theme) {
+    // First remove ALL theme classes from body and container
+    document.body.classList.remove('fruits', 'music', 'gardening', 'default');
+    document.querySelector('.container').classList.remove('fruits', 'music', 'gardening', 'default');
+    
+    // Add current theme
+    const themeClass = theme || 'default';
+    document.body.classList.add(themeClass);
+    document.querySelector('.container').classList.add(themeClass);
+    
+    // Force update titles
+    updateGameTitle();
+    
+    // DEBUG
+    console.log('Current Theme:', themeClass);
+    console.log('Body Classes:', document.body.className);
+}
+
+
+
+
 
 // Initialize difficulty buttons
 document.querySelectorAll('.difficulty-btn').forEach(button => {
@@ -240,6 +344,50 @@ document.querySelectorAll('.difficulty-btn').forEach(button => {
         }
     });
 });
+
+
+
+
+
+
+// Transition from pre-intro to intro
+elements.pepperImage.addEventListener('click', () => {
+    // Update greeting with current name (if received)
+    updateIntroGreeting();
+    
+    // Hide pre-intro
+    screens.preIntro.classList.remove('active');
+    screens.preIntro.classList.add('hidden');
+    
+    // Show intro
+    screens.intro.classList.remove('hidden');
+    screens.intro.classList.add('active');
+});
+// Transition from intro to other screens
+elements.introYesBtn.addEventListener('click', () => {
+    screens.intro.classList.add('hidden');
+    screens.intro.classList.remove('active');
+    
+    setTimeout(() => {
+        screens.start.classList.remove('hidden');
+        screens.start.classList.add('active');
+    }, 300);
+});
+
+
+elements.introNoBtn.addEventListener('click', () => {
+    screens.intro.classList.add('hidden');
+    screens.intro.classList.remove('active');
+    
+    setTimeout(() => {
+        screens.preIntro.classList.remove('hidden');
+        screens.preIntro.classList.add('active');
+    }, 300);
+});
+
+
+
+
 
 // Start game button event listener
 elements.startBtn.addEventListener('click', () => {
@@ -259,24 +407,55 @@ elements.startBtn.addEventListener('click', () => {
 });
 
 // Back to menu button event listener
+
 elements.backBtn.addEventListener('click', () => {
+    // Clear any pending timeouts
+    if (computerTurnTimeout) clearTimeout(computerTurnTimeout);
+    if (checkMatchTimeout) clearTimeout(checkMatchTimeout);
+    
+    // Reset game state
+    gameState = {
+        difficulty: null,
+        board: [],
+        faceUp: [],
+        matchedPairs: [],
+        playerScore: 0,
+        computerScore: 0,
+        playerTurn: true,
+        firstCard: null,
+        waiting: false,
+        seen_cards: [],
+        turnsTaken: 0,
+        gameOutcomeSent: false
+    };
+
+
+    screens.game.classList.add('hidden');
     screens.game.classList.remove('active');
+    
+
     screens.start.classList.remove('hidden');
-    elements.startBtn.disabled = true; // Re-disable, require theme/difficulty again
+    screens.start.classList.add('active');
 
-    // **** ADDED: Optionally revert to default styles when going back ****
-    // applyThemeStyles('default'); // Or keep the last theme's style? Your choice.
-    // updateGameTitle(); // Reset title if reverting styles
 
+    
+    // Transition screens
+    //
+    // screens.game.classList.remove('active');
+    // screens.start.classList.add('active');
+    //elements.startBtn.disabled = true;
+
+    //
+    // Update message based on connection state
     if (websocket && websocket.readyState === WebSocket.OPEN && SELECTED_PASSION) {
-         updateMessage(`Theme: ${SELECTED_PASSION}. Select difficulty and press Start.`);
+        updateMessage(`Theme: ${SELECTED_PASSION}. Select difficulty and press Start.`);
     } else if (websocket && websocket.readyState === WebSocket.OPEN) {
         updateMessage("Connected. Waiting for game theme...");
     } else {
-         updateMessage("Disconnected. Please refresh or wait for connection.");
+        updateMessage("Disconnected. Please refresh or wait for connection.");
     }
+    
     document.querySelectorAll('.difficulty-btn').forEach(btn => btn.classList.remove('active'));
-    gameState.difficulty = null;
 });
 
 // Play Again / Difficulty Change / End Game button listeners (no changes needed in core logic)
@@ -294,7 +473,8 @@ document.getElementById('increase-difficulty-yes').addEventListener('click', () 
     const messageElement = document.getElementById('difficulty-change-message');
     if (currentIndex < difficulties.length - 1) {
         gameState.difficulty = difficulties[currentIndex + 1];
-        messageElement.textContent = `Difficulty increased to: ${gameState.difficulty.replace('-', ' ')}`;
+        const difficultyText = gameState.difficulty.replace('-', ' ');
+        messageElement.innerHTML = `Difficulty increased to: <span class="difficulty-level">${difficultyText}</span>`;
     } else {
         messageElement.textContent = 'Already at maximum difficulty!';
     }
@@ -494,7 +674,7 @@ function renderBoard() {
                      card.innerHTML = `
                         <div class="card-inner ${gameState.faceUp[row][col] ? 'flipped-manual' : ''}">
                             <div class="card-front" style="background:#ccc; display:flex; align-items:center; justify-content:center;">Error</div>
-                            <div class="card-back"><img src="${config.cardBack}" alt="Card Back" onerror="this.src='${config.emptyCard}'"></div>
+                            <div <div class="card-back"><img src="${config.cardBacks[SELECTED_PASSION] || config.cardBacks.fruits}" alt="Card Back" onerror="this.src='${config.emptyCard}'"></div>
                         </div>`;
                      // Add 'flipped-manual' class if needed for CSS targeting w/o JS interaction
                      if (gameState.faceUp[row][col]) card.querySelector('.card-inner').classList.add('flipped-manual');
@@ -503,7 +683,7 @@ function renderBoard() {
                     card.innerHTML = `
                         <div class="card-inner">
                             <div class="card-front"><img src="${imagePath}" alt="Card ${cardValueKey}" onerror="this.src='${config.emptyCard}'"></div>
-                            <div class="card-back"><img src="${config.cardBack}" alt="Card Back" onerror="this.src='${config.emptyCard}'"></div>
+                            <div class="card-back"><img src="${config.cardBacks[SELECTED_PASSION] || config.cardBacks.fruits}" alt="Card Back" onerror="this.src='${config.emptyCard}'"></div>
                         </div>`;
                 }
 
@@ -563,63 +743,67 @@ function handleCardClick(row, col) {
 
 // Computer's turn logic
 function computerTurn() {
-    if (gameState.playerTurn || gameState.waiting) return; // Should not run if player's turn or waiting
-    if (isGameOver()) { checkGameOver(); return; } // Check game end before proceeding
+    // Add check at start of function
+    if (!gameState.difficulty || gameState.gameOutcomeSent) {
+        console.log("Computer turn cancelled - no active game");
+        return;
+    }
+    
+    if (gameState.playerTurn || gameState.waiting) return;
+    if (isGameOver()) { checkGameOver(); return; }
 
-    elements.helpBtn.disabled = true; // Help not available during computer's turn
-    if (elements.message) updateMessage('Pepper is thinking...');
+    elements.helpBtn.disabled = true;
+    updateMessage('Pepper is thinking...');
 
-    setTimeout(() => {
+    computerTurnTimeout = setTimeout(() => {
         let firstCard_p = selectRandomCard();
-        if (!firstCard_p) { // No available cards left? Should be caught by isGameOver
-             console.warn("Computer turn: No cards available to select (first).");
-             gameState.playerTurn = true; // Give turn back to player
-             renderBoard();
-             if(elements.message) updateMessage("Something went wrong. Your turn!");
-             elements.helpBtn.disabled = false;
-             return;
+        if (!firstCard_p) {
+            console.warn("Computer turn: No cards available to select (first).");
+            gameState.playerTurn = true;
+            renderBoard();
+            updateMessage("Something went wrong. Your turn!");
+            elements.helpBtn.disabled = false;
+            return;
         }
 
-        // Flip first card for computer
         gameState.faceUp[firstCard_p.row][firstCard_p.col] = true;
         gameState.seen_cards[firstCard_p.row][firstCard_p.col] = gameState.board[firstCard_p.row][firstCard_p.col];
-        renderBoard(); // Show the first card flipped
-        if (elements.message) updateMessage('Pepper selected the first card...');
+        renderBoard();
+        updateMessage('Pepper selected the first card...');
 
         const playerAccuracy = getPlayerAccuracy();
-        let pepperAccuracy = Math.min(0.95, Math.max(0.3, playerAccuracy + 0.15)); // Adjust AI difficulty
+        let pepperAccuracy = Math.min(0.95, Math.max(0.3, playerAccuracy + 0.15));
 
-        // Delay before selecting the second card
-        setTimeout(() => {
+        computerTurnTimeout = setTimeout(() => {
             let secondCard_p = Strategy(firstCard_p, pepperAccuracy);
-            if (!secondCard_p) { // Should only happen if only one card left, logic error elsewhere
+            if (!secondCard_p) {
                 console.warn("Computer turn: No cards available to select (second).");
-                // Flip back the first card? Or just end turn? Let's flip back.
                 gameState.faceUp[firstCard_p.row][firstCard_p.col] = false;
                 gameState.playerTurn = true;
                 renderBoard();
-                 if(elements.message) updateMessage("Pepper got confused. Your turn!");
-                 elements.helpBtn.disabled = false;
+                updateMessage("Pepper got confused. Your turn!");
+                elements.helpBtn.disabled = false;
                 return;
             }
 
-            // Flip second card for computer
             gameState.faceUp[secondCard_p.row][secondCard_p.col] = true;
             gameState.seen_cards[secondCard_p.row][secondCard_p.col] = gameState.board[secondCard_p.row][secondCard_p.col];
-            renderBoard(); // Show the second card flipped
-             if (elements.message) updateMessage('Pepper selected the second card. Checking match...');
+            renderBoard();
+            updateMessage('Pepper selected the second card. Checking match...');
 
-            // Delay before checking the match
-            setTimeout(() => checkMatch(firstCard_p, secondCard_p, 'computer'), 1000);
-
-        }, 1200); // Delay between computer's first and second pick
-
-    }, 800); // Initial delay for computer's "thinking"
+            checkMatchTimeout = setTimeout(() => checkMatch(firstCard_p, secondCard_p, 'computer'), 1000);
+        }, 1200);
+    }, 800);
 }
 
 
 // Computer's strategy function
 function Strategy(card1, acc) {
+
+    if (!gameState.difficulty) {
+        console.log("Strategy called with no difficulty set");
+        return null;
+    }
     const { rows, cols } = config.difficulties[gameState.difficulty];
     const card_type = gameState.board[card1.row][card1.col];
     const prob = Math.random();
@@ -651,6 +835,11 @@ function Strategy(card1, acc) {
 
 // Select a random available card
 function selectRandomCard(exclude = null) {
+
+    if (!gameState.difficulty) {
+        console.log("selectRandomCard called with no difficulty set");
+        return null;
+    }
     const { rows, cols } = config.difficulties[gameState.difficulty];
     let availableCards = [];
     for (let row = 0; row < rows; row++) {
@@ -744,6 +933,7 @@ function isGameOver() {
      const { rows, cols } = config.difficulties[gameState.difficulty];
      let totalPairs = (rows * cols) / 2;
      let matchedCount = gameState.playerScore + gameState.computerScore;
+     if (!gameState.difficulty) return false;
      return matchedCount === totalPairs; // Game is over when all pairs are matched
 }
 
@@ -764,6 +954,12 @@ function checkGameOver() {
         } else {
             title = 'Game Over!'; message = 'It\'s a tie!';
             outcome = 'tie';
+        }
+
+        // Update final score labels with player name
+        const finalScoreLabels = document.querySelectorAll('.final-score > div:first-child');
+        if (finalScoreLabels[0] && SELECTED_NAME) {
+            finalScoreLabels[0].textContent = SELECTED_NAME;
         }
 
         console.log(`Game Over - Player ${outcome}. Player: ${gameState.playerScore}, Computer: ${gameState.computerScore}`);
@@ -796,6 +992,12 @@ function checkGameOver() {
 function updateScores() {
     elements.playerScore.textContent = gameState.playerScore;
     elements.computerScore.textContent = gameState.computerScore;
+
+        // Update score labels with player name
+    const scoreLabels = document.querySelectorAll('.score-label');
+    if (scoreLabels[0] && SELECTED_NAME) {
+        scoreLabels[0].textContent = SELECTED_NAME;
+    }
 }
 
 // Update message display
@@ -831,30 +1033,34 @@ function flipAllCards(faceUp) {
 
 // Handle help button click
 function handleHelp() {
-    // Prevent help if not player's turn, waiting for match check, or already selected first card
     if (gameState.waiting || !gameState.playerTurn || gameState.firstCard !== null) return;
 
-    elements.helpBtn.disabled = true; // Disable button during help
-    flipAllCards(true); // Flip all cards face up
+    // Briefly flash the primary color
+    const helpBtn = elements.helpBtn;
+    helpBtn.style.backgroundColor = `var(--primary)`;
+    setTimeout(() => {
+        helpBtn.style.backgroundColor = `var(--secondary)`;
+    }, 200);
+
+    elements.helpBtn.disabled = true;
+    flipAllCards(true);
 
     let secondsLeft = 5;
     updateMessage(`Memorize! Flipping back in <span class="countdown-number">${secondsLeft}</span>...`);
 
     const countdownInterval = setInterval(() => {
         secondsLeft--;
-        const countdownSpan = elements.message.querySelector('.countdown-number'); // Target span within message
-
+        const countdownSpan = elements.message.querySelector('.countdown-number');
         if (secondsLeft > 0) {
             if (countdownSpan) countdownSpan.textContent = secondsLeft;
         } else {
             clearInterval(countdownInterval);
-            flipAllCards(false); // Flip cards back down
-            elements.helpBtn.disabled = false; // Re-enable help button
+            flipAllCards(false);
+            elements.helpBtn.disabled = false;
             updateMessage('Cards hidden! Your turn continues...');
         }
     }, 1000);
 }
-
 // Add event listener for help button
 elements.helpBtn.addEventListener('click', handleHelp);
 
@@ -870,6 +1076,16 @@ function getPlayerAccuracy() {
 document.addEventListener('DOMContentLoaded', (event) => {
     console.log("DOM fully loaded and parsed. Initializing...");
     elements.startBtn.disabled = true; // Start button disabled initially
+
+
+    // Hide all screens except pre-intro
+    screens.intro.classList.add('hidden');
+    screens.start.classList.add('hidden');
+    screens.game.classList.add('hidden');
+    screens.preIntro.classList.add('active');
+
+
+  
     updateMessage("Connecting to server...");
     applyThemeStyles('default'); // Apply default styles initially
     updateGameTitle(); // Set initial title (will update when theme received)
