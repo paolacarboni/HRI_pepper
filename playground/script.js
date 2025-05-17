@@ -2,6 +2,15 @@ let computerTurnTimeout = null;
 let checkMatchTimeout = null;
 
 
+
+const PASSION_COLORS = {
+    fruits: 'orange',
+    music: 'blue',
+    gardening: 'green'
+  };
+  
+
+
 // TODO: Strategy dell' accuracy del player
 
 // Define image sets 
@@ -108,7 +117,9 @@ let gameState = {
     waiting: false,
     seen_cards: [],
     turnsTaken: 0,
-    gameOutcomeSent: false
+    gameOutcomeSent: false,
+    meaningfulTurns: 0,
+    successfulMeaningfulTurns: 0
 };
 
 // DOM elements
@@ -201,6 +212,7 @@ function connectWebSocket() {
                 // **** APPLY DEFAULT (FRUITS) STYLES AND UPDATE TITLE ****
                 applyThemeStyles(SELECTED_PASSION); // Apply default styles
                 updateGameTitle();
+                updateStartScreenColors(SELECTED_PASSION);
 
                 elements.startBtn.disabled = false; // Enable start button even on fallback
                  if (elements.message) {
@@ -269,6 +281,7 @@ function applyThemeStyles(theme) {
     const styles = themeStyles[theme] || themeStyles.default;
     const root = document.documentElement;
 
+    // Update CSS variables
     Object.keys(styles).forEach(key => {
         const cssVarName = `--${key}`;
         const cssVarValue = styles[key];
@@ -277,54 +290,77 @@ function applyThemeStyles(theme) {
 
     // Update theme classes on relevant elements
     const themeClass = theme || 'default';
-    document.querySelectorAll('.game-title, .score-label, .score-value, .message-box, .countdown-number, .help-btn, #start-screen .logo').forEach(el => {
-        // Remove all theme classes
+    
+    // Update game title and logo
+    document.querySelectorAll('.game-title, .logo, .subtitle').forEach(el => {
         el.classList.remove('fruits', 'music', 'gardening', 'default');
-        // Add current theme class
         el.classList.add(themeClass);
     });
+
+    // Update buttons
+    document.querySelectorAll('.difficulty-btn, .start-btn').forEach(el => {
+        el.classList.remove('fruits', 'music', 'gardening', 'default');
+        el.classList.add(themeClass);
+    });
+
+    // Force update titles
+    updateGameTitle();
 }
 
 
 // Function to update game titles based on SELECTED_PASSION
 function updateGameTitle() {
     const passionTitle = SELECTED_PASSION ? 
-        SELECTED_PASSION.charAt(0).toUpperCase() + SELECTED_PASSION.slice(1) : 'Game';
+        SELECTED_PASSION.charAt(0).toUpperCase() + SELECTED_PASSION.slice(1) : 'Memory';
     
     if (elements.startScreenTitle) {
-        // COMPLETELY replace all classes
-        elements.startScreenTitle.className = 'logo';
-        if (SELECTED_PASSION) {
-            elements.startScreenTitle.classList.add(SELECTED_PASSION);
-        }
         elements.startScreenTitle.textContent = `${passionTitle} Memory`;
-        
-        // DEBUG: Log the current class and computed color
-        console.log('Start Screen Title Classes:', elements.startScreenTitle.className);
-        console.log('Computed Color:', window.getComputedStyle(elements.startScreenTitle).color);
+        // Remove any inline styles that might override our CSS
+        elements.startScreenTitle.style.color = '';
+        elements.startScreenTitle.style.background = '';
+        elements.startScreenTitle.style.webkitBackgroundClip = '';
+        elements.startScreenTitle.style.backgroundClip = '';
+    }
+    
+    if (elements.gameScreenTitle) {
+        elements.gameScreenTitle.textContent = `${passionTitle} Memory`;
+        elements.gameScreenTitle.style.color = '';
     }
 }
 
+function updateStartScreenColors() {
+    const color = PASSION_COLORS[SELECTED_PASSION] || 'black';
+  
+    document.querySelector('.logo').style.color = color;
+    document.querySelector('.subtitle').style.color = color;
+  
+    document.querySelectorAll('.difficulty-button').forEach(btn => {
+      btn.style.backgroundColor = color;
+    });
+  
+    document.querySelector('.start-button').style.backgroundColor = color;
+  }
+  
 
-function applyThemeStyles(theme) {
-    // First remove ALL theme classes from body and container
-    document.body.classList.remove('fruits', 'music', 'gardening', 'default');
-    document.querySelector('.container').classList.remove('fruits', 'music', 'gardening', 'default');
-    
-    // Add current theme
-    const themeClass = theme || 'default';
-    document.body.classList.add(themeClass);
-    document.querySelector('.container').classList.add(themeClass);
-    
-    // Force update titles
+
+
+
+  function applyThemeStyles(theme) {
+    const styles = themeStyles[theme] || themeStyles.fruits;
+    const root = document.documentElement;
+
+    // Update CSS variables
+    Object.keys(styles).forEach(key => {
+        root.style.setProperty(`--${key}`, styles[key]);
+    });
+
+    // Apply theme class to body
+    document.body.classList.remove('fruits', 'music', 'gardening');
+    document.body.classList.add(theme);
+
+    // Update game titles
     updateGameTitle();
-    
-    // DEBUG
-    console.log('Current Theme:', themeClass);
-    console.log('Body Classes:', document.body.className);
 }
-
-
 
 
 
@@ -880,6 +916,17 @@ function checkMatch(card1, card2, player) {
 
         if (player === 'player') {
             gameState.playerScore++;
+            gameState.turnsTaken++;
+            // Check if at least one card was seen before
+            const card1Seen = gameState.seen_cards[card1.row][card1.col] !== 0;
+            const card2Seen = gameState.seen_cards[card2.row][card2.col] !== 0;
+            // Update the successfulMeaningfulTurns only if at least one of the two matched cards was seen before
+            if (card1Seen || card2Seen) {
+                gameState.meaningfulTurns++;
+                if (match) {
+                    gameState.successfulMeaningfulTurns++;
+                }
+            }
             if (elements.message) updateMessage('Well done! It\'s your turn again!');
             elements.helpBtn.disabled = false; // Re-enable help
             gameState.waiting = false; // Player can go again immediately
@@ -1066,10 +1113,24 @@ elements.helpBtn.addEventListener('click', handleHelp);
 
 // Calculate player accuracy
 function getPlayerAccuracy() {
+    
     if (gameState.turnsTaken === 0) return 0.5; // Default starting accuracy for AI adjustment
-    // Accuracy = successful pairs found / number of pairs attempted
-    const accuracy = gameState.playerScore / gameState.turnsTaken;
+    // Accuracy = successful pairs found / number of pairs attempted 
+   // const accuracy = gameState.playerScore / gameState.turnsTaken;
+   // return Math.max(0.1, Math.min(0.9, accuracy)); // Clamp between 0.1 and 0.9
+    
+    // Count only turns where at least one card was seen before
+    // Update these counters in the checkMatch function when player makes a match
+    const accuracy = gameState.successfulMeaningfulTurns / Math.max(1, gameState.meaningfulTurns);
+    console.log('--- Accuracy Calculation ---');
+    console.log(`Total turns: ${gameState.turnsTaken}`);
+    console.log(`Meaningful turns: ${gameState.meaningfulTurns}`);
+    console.log(`Successful meaningful matches: ${gameState.successfulMeaningfulTurns}`);
+    
+    
     return Math.max(0.1, Math.min(0.9, accuracy)); // Clamp between 0.1 and 0.9
+
+
 }
 
 // Initialize connection when DOM is ready
