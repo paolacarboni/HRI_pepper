@@ -1,3 +1,9 @@
+
+
+
+
+
+
 import os
 import sys
 import time
@@ -129,10 +135,19 @@ VOCABULARY = {
     "names" : ["giovanni","carlo", "paolo"] 
 }
 USER_DATABASE = {
-    "giovanni": {"name" : "Giovanni", "passion": "fruits", "greeting": "Ah, Giovanni! Welcome back. I remember you enjoy fruits. How about a fruit memory game today?"},
-    "carlo": {"name" : "Carlo", "passion": "music", "greeting": "Hello Carlo! The music enthusiast returns! Shall we challenge your memory with a music game?"},
-    "paolo": {"name" : "Paolo", "passion": "gardening", "greeting": "Paolo, good to see you! Ready to test your green thumb's memory with a gardening game?"},
+    "giovanni": {"name" : "Giovanni", 
+                "passion": "fruits", 
+                "greeting": "Ah, Giovanni! Welcome back!"},
+    "carlo": {"name" : "Carlo", 
+              "passion": "music", 
+              "greeting": "Hello Carlo! Great to see you again!"},
+    "paolo": {"name" : "Paolo", 
+              "passion": "gardening", 
+              "greeting": "Paolo, good to see you! "},
 }
+
+
+
 
 class ProxemicsSimulator:
     ZONES = {'intimate': (0, 0.45), 'personal': (0.45, 1.2), 'social': (1.2, 3.6), 'public': (3.6, float('inf'))}
@@ -229,7 +244,7 @@ def reset_arm():
 def assess_confusion():
     questions = [("Do you know what day it is today?", ["yes_no"]),
                  ("Can you tell me where we are right now?", ["locations", "yes_no"]),
-                 ("Just checking, do you remember my name? It's Pepper.", ["yes_no"])]
+                 ("Just checking, do you remember my name?", ["yes_no"])]
     confusion_score = 0; positive_responses = ["yes", "i know"]
     for q_text, q_categories in questions:
         try:
@@ -314,14 +329,41 @@ def interaction_flow():
 
         wave_hello()
         try:
-            pepper_cmd.robot.say("Hello there! I'm Pepper. May I come a little closer to chat?")
-        except AttributeError: print("Pepper (sim) says: \"Hello there! I'm Pepper. May I come a little closer to chat?\"")
+
+            pepper_cmd.robot.say("Hello there! I'm Pepper. What's your name?")
+        except AttributeError: print("Pepper (sim) says: \"Hello there! I'm Pepper. What's your name?\"")
+            # pepper_cmd.robot.say("Hello there! I'm Pepper. May I come a little closer to chat?")
+        # except AttributeError: print("Pepper (sim) says: \"Hello there! I'm Pepper. May I come a little closer to chat?\"")
         except Exception as e_say: print("Error during initial say: {}".format(e_say))
         reset_arm()
+
+        user_name = get_user_input(["names"])
+            
+
+        if user_name in USER_DATABASE:
+            user_info = USER_DATABASE[user_name]
+            selected_passion, selected_greeting = user_info["passion"], user_info["greeting"]
+            selected_name = user_info["name"]
+
+            
+
+            try: pepper_cmd.robot.say(selected_greeting)
+            except AttributeError: print("Pepper (sim) says: \"{}\"".format(selected_greeting))
+        else:
+            selected_passion = "fruits" # Default passion
+            greeting_unknown = "Hello {}! It's a pleasure to meet you. Today, we can try a fun fruit memory game if you like.".format(selected_name)
+            try: pepper_cmd.robot.say(greeting_unknown)
+            except AttributeError: print("Pepper (sim) says: \"{}\"".format(greeting_unknown))
+
+        try:
+            pepper_cmd.robot.say("Hello there! I'm Pepper. May I come a little closer to chat?")
+        except AttributeError: print("Pepper (sim) says: \"Hello there! I'm Pepper. May I come a little closer to chat?\"")
+
         response = get_user_input(["yes_no"]) # get_user_input has its own sim fallbacks
 
         if "yes" in response:
             move_to_zone('social', proxemics.get_zone()); proxemics.set_distance(1.5)
+            '''
             try:
                 pepper_cmd.robot.say("It's nice to meet you! What's your name?")
             except AttributeError: print("Pepper (sim) says: \"It's nice to meet you! What's your name?\"")
@@ -333,6 +375,8 @@ def interaction_flow():
                 selected_passion, selected_greeting = user_info["passion"], user_info["greeting"]
                 selected_name = user_info["name"]
 
+                
+
                 try: pepper_cmd.robot.say(selected_greeting)
                 except AttributeError: print("Pepper (sim) says: \"{}\"".format(selected_greeting))
             else:
@@ -340,6 +384,8 @@ def interaction_flow():
                 greeting_unknown = "Hello {}! It's a pleasure to meet you. Today, we can try a fun fruit memory game if you like.".format(selected_name)
                 try: pepper_cmd.robot.say(greeting_unknown)
                 except AttributeError: print("Pepper (sim) says: \"{}\"".format(greeting_unknown))
+
+            '''
 
             if build_trust(): # build_trust has its own sim fallbacks
                 move_to_zone('personal', proxemics.get_zone()); proxemics.set_distance(0.8)

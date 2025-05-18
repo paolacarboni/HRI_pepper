@@ -11,26 +11,31 @@
 <body>
     <div class="container">
        
-        <div id="pre-intro-screen" class="pre-intro-screen active">
-            <div class="logo">Hi, I'm Pepper</div>
-            <div class="pepper-image-container">
-                <img src="pepper_face.png" alt="Pepper" class="pepper-image" id="pepper-image">
-            </div>
-        </div>
+<!-- Pre-Intro Screen -->
+<div id="pre-intro-screen" class="screen active">
+    <div class="logo" id="pre-intro-greeting">Welcome! I'm Pepper</div>
+    <div class="pepper-image-container">
+        <img src="pepper_face.png" alt="Pepper" class="pepper-image" id="pepper-image">
+    </div>
+</div>
 
-        <div id="intro-screen" class="intro-screen hidden">
-            <div class="logo">I'm Pepper!</div>
-            <div class="subtitle">Would you like to play a memory game?</div>
-            <div class="intro-buttons">
-                <button id="intro-yes-btn" class="start-btn">Yes</button>
-                <button id="intro-no-btn" class="back-btn">No</button>
-            </div>
-        </div>
 
+<!-- Intro Screen -->
+<div id="intro-screen" class="screen">
+    <div class="logo" id="intro-greeting"></div>
+    <div class="pepper-image-container">
+        <img src="pepper_face.png" alt="Pepper" class="pepper-image">
+    </div>
+    <div class="game-invitation">Are you ready to play a memory game?</div>
+    <div class="intro-buttons">
+        <button id="intro-yes-btn" class="start-btn">Yes</button>
+        <button id="intro-no-btn" class="back-btn">No</button>
+    </div>
+</div>
 
         <div id="start-screen" class="start-screen hidden">
             <div class="logo">Memory </div>
-            <div class="subtitle">Match the pairs to win!</div>
+            <div class="subtitle">Select the difficulty and start the game!</div>
 
             <div class="difficulty-buttons">
                 <button class="difficulty-btn" data-difficulty="very-easy">Very Easy</button>
