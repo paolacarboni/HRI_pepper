@@ -85,7 +85,7 @@ const themeStyles = {
 // **** MODIFIED: Initialize SELECTED_PASSION to null ****
 let SELECTED_PASSION = null;
 let SELECTED_NAME = null;
-
+//let websocket = null;
 // Game configuration
 const config = {
     difficulties: {
@@ -148,21 +148,29 @@ const screens = {
     game: document.getElementById('game-screen')
 };
 
+
 // --- Standard WebSocket Connection ---
 let websocket = null;
 
 function connectWebSocket() {
-    websocket = new WebSocket('ws://localhost:8888/ws');
+    // Determine WebSocket protocol: 'ws' for http, 'wss' for https
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Use the same host as the page was loaded from
+    const wsHost = window.location.host; // This will be e.g., "your-id.ngrok-free.app" or "localhost:8888"
+
+    const wsUrl = `${wsProtocol}//${wsHost}/ws`;
+    console.log("Attempting WebSocket connection to: " + wsUrl); // Log the URL we're trying to connect to
+    websocket = new WebSocket(wsUrl);
 
     websocket.onopen = function(event) {
-        console.log("WebSocket connection opened to ws://localhost:8888/ws");
+        console.log("WebSocket connection opened to " + wsUrl); // Log the successful connection URL
         if (elements.message) {
             updateMessage("Connected. Waiting for game theme...");
         }
         elements.startBtn.disabled = true; // Keep disabled until theme received
     };
 
-    // **** MODIFIED: WebSocket onmessage handler ****
+    // **** MODIFIED: WebSocket onmessage handler (This part remains as you had it) ****
     websocket.onmessage = function(event) {
         console.log("Message received from server: " + event.data);
 
@@ -170,15 +178,15 @@ function connectWebSocket() {
             const receivedName = event.data.split(" ")[1];
             SELECTED_NAME = receivedName;
             console.log("Name set by server:", SELECTED_NAME);
-    
+
             // Update all player name displays immediately
             document.querySelectorAll('.player-label').forEach(el => {
                 el.textContent = SELECTED_NAME;
             });
-    
+
             // Update the intro greeting immediately if we're on the intro screen
             updateIntroGreeting();
-    
+
             // Also update the intro screen logo if it exists
             if (elements.introScreen) {
                 const logoElement = elements.introScreen.querySelector('.logo');
@@ -212,7 +220,7 @@ function connectWebSocket() {
                 // **** APPLY DEFAULT (FRUITS) STYLES AND UPDATE TITLE ****
                 applyThemeStyles(SELECTED_PASSION); // Apply default styles
                 updateGameTitle();
-                updateStartScreenColors(SELECTED_PASSION);
+                // updateStartScreenColors(SELECTED_PASSION); // This line was in your original, ensure it's defined if you need it
 
                 elements.startBtn.disabled = false; // Enable start button even on fallback
                  if (elements.message) {
@@ -246,9 +254,6 @@ function connectWebSocket() {
     };
 }
 // --- End Standard WebSocket ---
-
-
-
 
 
 function updateIntroGreeting() {
