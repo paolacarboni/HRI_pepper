@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+       
+<!-- Pre-Intro Screen -->
+<div id="pre-intro-screen" class="screen active">
+    <div class="logo" id="pre-intro-greeting">Welcome! I'm Pepper</div>
+    <div class="pepper-image-container">
+        <img src="pepper_face.png" alt="Pepper" class="pepper-image" id="pepper-image">
+    </div>
+</div>
+
+
+<!-- Intro Screen -->
+<div id="intro-screen" class="screen">
+    <div class="logo" id="intro-greeting"></div>
+    <div class="pepper-image-container">
+        <img src="pepper_face.png" alt="Pepper" class="pepper-image">
+    </div>
+    <div class="game-invitation">Are you ready to play a memory game?</div>
+    <div class="intro-buttons">
+        <button id="intro-yes-btn" class="start-btn">Yes</button>
+        <button id="intro-no-btn" class="back-btn">No</button>
+    </div>
+</div>
+
+        <div id="start-screen" class="start-screen hidden">
+            <div class="logo">Memory </div>
+            <div class="subtitle">Select the difficulty and start the game!</div>
+
+            <div class="difficulty-buttons">
+                <button class="difficulty-btn" data-difficulty="very-easy">Very Easy</button>
+                <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+                <button class="difficulty-btn" data-difficulty="medium">Medium</button>
+                <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+                <button class="difficulty-btn" data-difficulty="very-hard">Very Hard</button>
+            </div>
+
+            <button id="start-btn" class="start-btn">Start Game</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="game-screen">
+            <div class="game-header">
+                <div class="game-title">Memory </div>
+                <div class="score-display">
+                    <div class="score-box">
+                        <div class="score-label player-label">Player</div>
+                        <div id="player-score" class="score-value">0</div>
+                    </div>
+                    <div class="score-box">
+                        <div class="score-label">Pepper</div>
+                        <div id="computer-score" class="score-value">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="message" class="message-box">Select a card to begin</div>
+
+            <div id="game-board" class="game-board"></div>
+
+            <button id="back-btn" class="back-btn">Back to Menu</button>
+            <button id="help-btn" class="help-btn">Ask for Help</button>
+        </div>
+    </div>
+
+    <!-- End Game Message -->
+    <div class="end-game-overlay"></div>
+    <div class="end-game-message">
+        <h2 id="end-game-title">Game Over!</h2>
+        <p id="end-game-message"></p>
+        <div class="final-scores">
+            <div class="final-score">
+                <div class="player-label">Player</div>
+                <div id="final-player-score">0</div>
+            </div>
+            <div class="final-score">
+                <div>Pepper</div>
+                <div id="final-computer-score">0</div>
+            </div>
+        </div>
+        <div class="end-game-buttons">
+            <button id="play-again-btn" class="start-btn">Play Again</button>
+            <button id="end-game-btn" class="back-btn">End Game</button>
+        </div>
+    </div>
+
+    <!-- Difficulty Change Screen -->
+    <div class="difficulty-change-overlay"></div>
+    <div class="difficulty-change-screen">
+        <h2>Would you like to increase the difficulty?</h2>
+        <p id="difficulty-change-message" class="difficulty-message"></p>
+        <div class="difficulty-change-buttons">
+            <button id="increase-difficulty-yes" class="start-btn">Yes</button>
+            <button id="increase-difficulty-no" class="back-btn">No</button>
+        </div>
+    </div>
+
+    <!-- Reference your script -->
+    <script src="script.js"></script>
+</body>
+</html>
