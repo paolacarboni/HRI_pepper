@@ -5,9 +5,9 @@ from datetime import datetime
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
-import inspect 
+import inspect    # getsourcefile
 import os.path
-import mimetypes 
+import mimetypes # For guessing file types
 import platform  # For OS-specific path handling in webbrowser
 import random
 
@@ -19,15 +19,19 @@ from pepper_cmd import *
 import threading
 import webbrowser
 try:
+    # Python 2 uses Queue module
     from Queue import Queue, Empty
 except ImportError:
-    import queue 
-    Queue = queue.Queue 
-    Empty = queue.Empty 
+    # Python 3 uses queue module
+    # Corrected import for Python 3:
+    import queue # Import the module directly
+    Queue = queue.Queue # Assign the Queue class from the module to a variable named Queue
+    Empty = queue.Empty # Assign Empty exception similarly
 
 
 motion_service = None
-proxemics_info = None
+####NEW
+#proxemics_info = None
 # Corrected Queue initialization
 game_result_queue = Queue()
 robot_action_queue = Queue()
@@ -60,7 +64,7 @@ class WebSocketServer(tornado.websocket.WebSocketHandler):
         global selected_passion, selected_name
         if selected_passion:
             theme_message = "theme {}".format(selected_passion)
-            print("[WebSocket] Sending initial theme to new client: '{theme_message}'".format(theme_message=theme_message))
+            #print("[WebSocket] Sending initial theme to new client: '{theme_message}'".format(theme_message=theme_message))
             try:
                 self.write_message(theme_message)
             except Exception as e:
@@ -68,7 +72,7 @@ class WebSocketServer(tornado.websocket.WebSocketHandler):
 
         if selected_name:
             name_message = "name {}".format(selected_name)
-            print("[WebSocket] Sending initial name to new client: '{name_message}'".format(name_message=name_message))
+            #print("[WebSocket] Sending initial name to new client: '{name_message}'".format(name_message=name_message))
             try:
                 self.write_message(name_message)
             except Exception as e:
@@ -78,11 +82,11 @@ class WebSocketServer(tornado.websocket.WebSocketHandler):
         global game_result_queue, robot_action_queue # Ensure robot_action_queue is global here
         command = message.strip().lower()
         if command in ["win", "lose", "tie"]:
-            print("[WebSocket] Received game outcome signal: '{command}'".format(command=command))
+            #print("[WebSocket] Received game outcome signal: '{command}'".format(command=command))
             try: game_result_queue.put(command)
             except Exception: pass
         elif command == "endgame": # NEW: Handle endgame signal from frontend
-            print("[WebSocket] Received 'endgame' signal from client. Adding to robot action queue.")
+            #print("[WebSocket] Received 'endgame' signal from client. Adding to robot action queue.")
             try:
                 robot_action_queue.put("return_to_start")
             except Exception as e:
@@ -90,7 +94,7 @@ class WebSocketServer(tornado.websocket.WebSocketHandler):
 
 
     def on_close(self):
-        print("[WebSocket] Client disconnected.")
+        print("disconnecting.")
         if self in WebSocketServer.clients:
             WebSocketServer.clients.remove(self)
 
@@ -111,46 +115,14 @@ class FileHandler(tornado.web.RequestHandler):
         except tornado.web.HTTPError as e: self.send_error(e.status_code)
         except Exception: self.send_error(500)
 
-# def make_app():
-#     return tornado.web.Application([
-#         (r'/ws', WebSocketServer), (r"/(index\.html)", FileHandler),
-#         (r"/(script\.js)", FileHandler), (r"/(style\.css)", FileHandler),
-#         (r"/(.*\.(?:js|css|jpg|jpeg|png|gif|ico|woff|woff2|ttf|eot|svg|map))", FileHandler),
-#         (r"/", tornado.web.RedirectHandler, {"url": "/index.html"}),
-#     ])
-
 def make_app():
-    # Get the directory where main.py is located
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    print("[Server] Serving static files from: {}".format(current_dir)) # Added for debugging
-
-    # Define the handlers for the Tornado web application
     return tornado.web.Application([
-        # WebSocket endpoint
-        (r'/ws', WebSocketServer),
-
-        # Handler for index.html (served directly from the script's directory)
-        (r"/(index\.html)", tornado.web.StaticFileHandler, {"path": current_dir}),
-
-        # Handler for script.js (served directly from the script's directory)
-        (r"/(script\.js)", tornado.web.StaticFileHandler, {"path": current_dir}),
-
-        # Handler for style.css (served directly from the script's directory)
-        (r"/(style\.css)", tornado.web.StaticFileHandler, {"path": current_dir}),
-
-        # Handler for files within the 'images' subdirectory
-        # This regex matches any path starting with /images/ and captures the rest (.*)
-        # The path parameter then tells StaticFileHandler to look inside the 'images' folder
-        (r"/images/(.*)", tornado.web.StaticFileHandler, {"path": os.path.join(current_dir, "images")}),
-
-        # Generic handler for other common static files (like fonts, manifest, etc.)
-        # Assumes these files are also directly in the script's directory (e.g., /favicon.ico)
-        (r"/(.*\.(?:js|css|jpg|jpeg|png|gif|ico|woff|woff2|ttf|eot|svg|map|json|webmanifest))",
-         tornado.web.StaticFileHandler, {"path": current_dir}),
-
-        # Redirect root URL to index.html
+        (r'/ws', WebSocketServer), (r"/(index\.html)", FileHandler),
+        (r"/(script\.js)", FileHandler), (r"/(style\.css)", FileHandler),
+        (r"/(.*\.(?:js|css|jpg|jpeg|png|gif|ico|woff|woff2|ttf|eot|svg|map))", FileHandler),
         (r"/", tornado.web.RedirectHandler, {"url": "/index.html"}),
     ])
+
 def run_tornado_server():
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -164,84 +136,32 @@ VOCABULARY = {
     "no": ["no", "not sure", "maybe", "i don't know"],
     "positive_feelings": ["fine", "good", "great", "okay", "you too"],
     "negative_feelings": [ "bad", "not great", "terrible"],
-    "locations": ["garden", "my room", "the corridor", "activity room", "living room"],
+    "locations": ["garden", "bedroom", "corridor", "activity room", "living room"],
     "names" : ["alessia","paola", "charlotte"],
     "pepper_name": ["pepper"]
 }
+
 USER_DATABASE = {
-    "giovanni": {"name" : "Alessia",
+    "alessia": {"name" : "Alessia",
                 "passion": "fruits",
                 "greeting": "Ah, Alessia! Welcome back! Would you like to have a little chat?"},
     "paola": {"name" : "Paola",
               "passion": "music",
               "greeting": "Hello Paola! Great to see you again! Would you like to have a little chat?"},
-    "paolo": {"name" : "Charlotte",
+    "charlotte": {"name" : "Charlotte",
               "passion": "gardening",
               "greeting": "Charlotte, good to see you! Would you like to have a little chat?"},
 }
 
 class ProxemicsSimulator:
-    ZONES = {'intimate': (0, 0.45), 'personal': (0.45, 1.2), 
-             'social': (1.2, 3.6), 'public': (3.6, float('inf'))}
-    
-    def __init__(self):
-        self.current_distance = 4.0  # Default starting distance
-        self.trust_level = 0
-        self.sensors_active = False
-        
-        # Initialize sensors if connected to real robot
-        if pepper_cmd.robot and pepper_cmd.robot.session:
-            try:
-                pepper_cmd.robot.startSensorMonitor()
-                self.sensors_active = True
-                print("[Proxemics] Real sensors activated")
-            except Exception as e:
-                print("[Proxemics] Couldn't start sensors: {e}")
-
-    def __del__(self):
-        if self.sensors_active:
-            try:
-                pepper_cmd.robot.stopSensorMonitor()
-            except:
-                pass
-
-    def get_sensor_distance(self):
-        """Get real sensor distance if available, otherwise return simulated distance"""
-        if self.sensors_active:
-            try:
-                # Get front sonar value, filtering outliers
-                val = pepper_cmd.robot.sonar[0]
-                return val if val not in [0.0, None] else self.current_distance
-            except:
-                return self.current_distance
-        return self.current_distance
-
-    def set_distance(self, distance):
-        """For simulation/testing purposes"""
-        self.current_distance = max(0, distance)
-
+    ZONES = {'intimate': (0, 0.45), 'personal': (0.45, 1.2), 'social': (1.2, 3.6), 'public': (3.6, float('inf'))}
+    def __init__(self): self.current_distance = 4.0; self.trust_level = 0
+    def set_distance(self, distance): self.current_distance = max(0, distance)
     def get_zone(self):
-        """Get current zone using either real sensors or simulation"""
-        current_dist = self.get_sensor_distance()
-        
         for zone, (min_dist, max_dist) in self.ZONES.items():
-            if float(min_dist) <= float(current_dist) < float(max_dist):
-                return zone
+            if float(min_dist) <= float(self.current_distance) < float(max_dist): return zone
         return 'public'
 
-    def is_safe_to_move(self, movement):
-        """Check if it's safe to move (don't move forward if someone is too close)"""
-        if movement < 0:  # Only check when moving forward
-            current_dist = self.get_sensor_distance()
-            if current_dist < 0.3:  # Safety threshold
-                print("[Safety] Not moving forward - someone is too close!")
-                try:
-                    pepper_cmd.robot.say("I think you're too close. I'll stay here.")
-                except:
-                    pass
-                return False
-        return True
-    
 def move_forward(distance_meters):
     global motion_service
     if not motion_service:
@@ -253,28 +173,12 @@ def move_forward(distance_meters):
     except Exception: pass
 
 def move_to_zone(target_zone, current_zone):
-    zone_target_distances = {
-        'public': 3.0, 
-        'social': 1.5, 
-        'personal': 0.8, 
-        'intimate': 0.3
-    }
-    
+    zone_target_distances = {'public': 3.0, 'social': 1.5, 'personal': 0.8, 'intimate': 0.3}
     target_distance = zone_target_distances.get(target_zone)
     current_typical_dist = zone_target_distances.get(current_zone)
-    
-    if target_distance is None or current_typical_dist is None:
-        return
-    
+    if target_distance is None or current_typical_dist is None: return
     movement = float(current_typical_dist) - float(target_distance)
-    
-    if abs(movement) > 0.1:
-        # Check safety before moving
-        if not proxemics.is_safe_to_move(movement):
-            return
-            
-        print("[Movement] Moving by {movement:.2f}m to reach {target_zone} zone")
-        move_forward(movement)
+    if abs(movement) > 0.1: move_forward(movement)
 
 def wave_hello():
     try:
@@ -308,53 +212,85 @@ def reset_arm():
 
     except Exception as e:
         print(e)
+def close():
+    print("Entering cleanup phase...")
+    try:
+        # Attempt to stop the Tornado IOLoop gracefully
+        # This needs to be done on the IOLoop's thread
+        tornado.ioloop.IOLoop.current().add_callback(tornado.ioloop.IOLoop.current().stop)
+        # Give it a moment to process the stop command
+        time.sleep(0.1)
 
+        if 'end' in globals() and callable(end) :
+            print("Closing Pepper connection...")
+            if motion_service:
+                try: motion_service.rest()
+                except Exception as e: print("Error during final rest: {}".format(e))
+            end()
+    except Exception as e:
+        print("Error during final cleanup: {}".format(e))
+    time.sleep(1)
+    
+# def get_user_input(categories=None):
+#     user_input_prompt = "You: "
+#     while True:
+#         try:
+#             # Robot Mode
+#             #response = pepper_cmd.robot.asr(categories, timeout=10)
+#             # Simulation Mode
+#             response = raw_input(user_input_prompt).strip().lower()
+#             if response in categories:
+#                 return response
+#         except AttributeError:
+#            print("Pepper (sim) says: \"{}\"".format("Sorry, I didn't catch that. Could you please say it again?"))    
 def get_user_input(categories=None):
-    #user_input_prompt = "You: "
+    user_input_prompt = "You: "
     while True:
         try:
-            response = pepper_cmd.robot.asr(categories, timeout=10)
-            #response = raw_input(user_input_prompt).strip().lower()
-            if not response:
+            #response = pepper_cmd.robot.asr(categories, timeout=10)
+            response = raw_input(user_input_prompt).strip().lower()
+            if response == None:
                 pepper_cmd.robot.say("Sorry, I didn't catch that. Could you please say it again?")
                 continue
-            if categories:
+            #if categories:
+            else:    
                 for category_name in categories:
                     for keyword in VOCABULARY.get(category_name, []):
                         if keyword in response: return keyword
-                unrecognized_msg = "I'm sorry, I didn't quite understand that."
-                if 'yes_no' in categories: unrecognized_msg += " Please try saying 'yes' or 'no'."
-                elif 'names' in categories: unrecognized_msg += " Could you please tell me your name again?"
-                pepper_cmd.robot.say(unrecognized_msg)
-            else: return response
+                #unrecognized_msg = "I'm sorry, I didn't quite understand that."
+                #if 'yes_no' in categories: unrecognized_msg += " Please try saying 'yes' or 'no'."
+                #elif 'names' in categories: unrecognized_msg += " Could you please tell me your name again?"
+                #pepper_cmd.robot.say(unrecognized_msg)
+            #else: return response
         except (EOFError, KeyboardInterrupt): print("\nUser interrupted. Exiting..."); sys.exit(0)
         except AttributeError:
             print("Pepper (sim) says: \"{}\"".format("Sorry, I didn't catch that. Could you please say it again?"))
         except Exception as e: print("\nError reading input: {}".format(e)); sys.exit(1)
+          
+# def build_trust():
+#     positive_feelings = ["fine", "good", "great"]
+#     negative_feelings = ["bad", "not great", "terrible", "no", "horrible", "sad", "confused"]
+#     trust_points = 0
+    
+#     trust_questions = [("It's nice to talk with you! Is it a good day?", ["positive_feelings", "negative_feelings", "yes"]),
+#             ("How are you feeling right now?", ["positive_feelings", "negative_feelings"])]
+#     for question, answer in trust_questions:
+#         try:
+#             pepper_cmd.robot.say(question)
+#         except AttributeError: print("Pepper (sim) says: \"{}\"".format(question))
 
-def assess_confusion():
-    confusion_questions = [("Do you know what day it is today?", ["yes"]), #, ["no"]),
-                 ("Can you tell me where we are right now?", ["locations"]), # ["no"]),
-                 ("Just checking, do you remember my name?", ["yes", "pepper_name"])]
-    confusion_score = 0; #positive_responses = ["yes", "i know"]
-    for question, right_answers in confusion_questions:
-        try:
-            pepper_cmd.robot.say(question)
-        except AttributeError: print("Pepper (sim) says: \"{}\"".format(question))
-        except Exception as e_say: print("Error in assess_confusion (say): {}".format(e_say))
-
-        response = get_user_input(right_answers)
-        #response = pepper_cmd.robot.asr(q_categories, timeout=10)
-        #response = pepper_cmd.robot.asr(VOCABULARY, timeout=10)
-        #if response not in positive_responses and response not in VOCABULARY.get("locations", []): confusion_score += 1
-        if response not in right_answers: confusion_score += 1
-        time.sleep(0.5)
-    return confusion_score >= 2
+#         response = get_user_input(q_categories)
+#     return trust_points >= 1
 
 def build_trust():
+
     trust_points = 0
-    trust_questions = [("It's nice to talk with you! Is it a good day?", ["positive_feelings", "yes"]),
-                 ("How are you feeling right now?", ["feelings"])]
+    trust_questions = [("It's nice to talk with you! Is it a good day?", ["positive_feelings", "negative_feelings", "yes", "no"]),
+                ("How are you feeling right now?", ["positive_feelings", "negative_feelings"])]
+    #greetings = [("It's nice to interact with you today. Is it a good day for you?", ["feelings", "yes_no"]),
+                 #("How are you feeling right now?", ["feelings"])]
+    #trust_questions = [("It's nice to talk with you! Is it a good day?", ["positive_feelings", "negative_feelings", "yes"]),
+     #           ("How are you feeling right now?", ["positive_feelings", "negative_feelings"])]
     #positive_feelings = ["fine", "good", "great", "okay", "yes"]; negative_feelings = ["bad", "not great", "terrible", "no"]
     for g_text, q_categories in trust_questions:
         try:
@@ -363,33 +299,74 @@ def build_trust():
         except Exception as e_say: print("Error in build_trust (say): {}".format(e_say))
 
         response = get_user_input(q_categories)
-        #response = pepper_cmd.robot.asr(VOCABULARY, timeout=10)
-        #feedback_say = ""
-        if response in q_categories: trust_points += 1; feedback_say = random.choice((
-"I'm happy to hear that",
-"Lovely !",
-"Very good!",
-"Sounds great!"
-))
-        elif response in ["negative_feelings"]: feedback_say = random.choice((
-"Oh, I'm sorry to hear that. I hope I can bring a little brightness.",
-"I hope you'll feel better soon !",
-"Oh no!"
-)) 
-        elif "you" in response: trust_points += 1; feedback_say = "Thank you for asking! I'm feeling really good talking to you!"
-        #else: feedback_say = "Okay"
+        feedback_say = ""
+        if response in VOCABULARY["positive_feelings"]: trust_points += 1; feedback_say = random.choice((
+            "I'm happy to hear that!!",
+            "I'm glad to hear that!",
+            "Great!",
+            "Lovely !",
+            "Very good!",
+            "Sounds great!"
+        ))
+        elif response in VOCABULARY["negative_feelings"]: feedback_say = random.choice((
+            "Oh, I'm sorry to hear that. I hope I can bring a little brightness.",
+            "I hope you'll feel better soon !",
+            "That's too bad",
+            "That's sad",
+            "Oh no!"
+            )) 
+         #elif "you" in response: trust_points += 1; feedback_say = "Thank you for asking! I'm feeling operational and ready to play!"
+        #else: feedback_say = "Okay."
 
-        try:
-            pepper_cmd.robot.say(feedback_say)
-        except AttributeError: print("Pepper (sim) says: \"{}\"".format(feedback_say))
-        except Exception as e_say_fb: print("Error in build_trust (feedback_say): {}".format(e_say_fb))
+        #except AttributeError: print("Pepper (sim) says: \"{}\"".format(feedback_say))
+        #except Exception as e_say_fb: print("Error in build_trust (feedback_say): {}".format(e_say_fb))
         time.sleep(0.5)
     return trust_points >= 1
 
+def assess_confusion(right_location):
+    confusion_score = 0;
+    # questions = [("Do you know what day it is today?", ["yes_no"]),
+    #              ("Can you tell me where we are right now?", ["locations", "yes_no"]),
+    #              ("Just checking, do you remember my name?", ["yes_no", "pepper_name"])]
+    confusion_questions = [("Do you know what day it is today?", ["yes", "no"]),
+                ("Can you tell me where we are right now?", ["locations", "yes", "no"]),
+                ("Just checking, do you remember my name?", ["yes", "pepper_name", "no"])]
+    #positive_responses = ["yes", "i know"]
+    #right_location = random.choice(VOCABULARY["locations"])
+    for question, answers in confusion_questions:
+        try:
+            pepper_cmd.robot.say(question)
+        except AttributeError: print("Pepper (sim) says: \"{}\"".format(question))
+        except Exception as e_say: print("Error in assess_confusion (say): {}".format(e_say))
 
-#################### Main Interaction Flow ###################################
+        response = get_user_input(answers)
+        print(response)
+        # Evaluate response
+        if "locations" in answers:
+            # For location question, check if they gave the right location
+            if response.lower() != right_location.lower() and response not in VOCABULARY["yes"]:
+                confusion_score += 1
+                print("punto confusion")
+        elif "pepper_name" in answers:
+            # For name question, check if they said Pepper's name
+            if response.lower() not in [name.lower() for name in VOCABULARY["pepper_name"]]:
+                confusion_score += 1
+                print("punto confusion")
+        else:
+            # For yes/no questions, check if they said no or were uncertain
+            if response.lower() in [no.lower() for no in VOCABULARY["no"]]:
+                confusion_score += 1
+                print("punto confusion")
+        #if response not in right_location and response in VOCABULARY["yes"]:
+         #  confusion_score += 1 # and response not in VOCABULARY.get("locations", []): confusion_score += 1
+          # print(confusion_score)
+        #elif response not in VOCABULARY["yes"]: confusion_score += 1
+        time.sleep(0.5)
+    return confusion_score >= 2
+
+# --- Main Interaction Flow
 def interaction_flow():
-    global begin, end, selected_passion, motion_service, proxemics, selected_name, robot_action_queue
+    global begin, end, selected_passion, motion_service, selected_name, robot_action_queue
 
     # Initialize game counters
     user_wins = 0
@@ -409,9 +386,7 @@ def interaction_flow():
     initial_connection_successful = False
 
     proxemics = ProxemicsSimulator()
-    #proxemics.set_distance(4.0)
-    #proxemics.get_sensor_distance()
-    zone = proxemics.get_zone()
+    proxemics.set_distance(4.0)
 
     try:
         try:
@@ -428,7 +403,8 @@ def interaction_flow():
                  initial_connection_successful = True
                  print("Successfully connected to Pepper.")
             else:
-                print("pepper_cmd.robot or session is not available.")
+                print("Pepper connection attempt made, but pepper_cmd.robot or session is not available.")
+                print("Proceeding in simulation mode for some functions.")
         except Exception as e_connect:
             print("Simulation mode: Pepper connection failed: {}".format(e_connect))
 
@@ -451,7 +427,7 @@ def interaction_flow():
                 try:
                     action = robot_action_queue.get(block=False) # Non-blocking check
                     if action == "return_to_start":
-                        print("[Main] Robot action: Returning to start position and resting.")
+                        #print("[Main] Robot action: Returning to start position and resting.")
                         goodbye_text = "Okay, I'll return to my spot. See you next time!"
                         try:
                             if initial_connection_successful and pepper_cmd.robot:
@@ -460,10 +436,9 @@ def interaction_flow():
                                 print("Pepper (sim) says: \"{}\"".format(goodbye_text))
                         except Exception as e_say:
                             print("Error saying goodbye: {}".format(e_say))
-                        
-                        
-                        #move_to_zone('public', proxemics.get_zone())
-                        #proxemics.set_distance(3.6)
+
+                        move_to_zone('public', proxemics.get_zone())
+                        proxemics.set_distance(3.6)
                         if initial_connection_successful and motion_service:
                             motion_service.rest()
 
@@ -478,22 +453,17 @@ def interaction_flow():
 
                 # Only ask for name if not already set (new session or after endgame)
                 if selected_name is None:
-                    if zone > 4.0:
-                        move_to_zone('public', zone)
-                        #zone = proxemics.get_zone()
-                    elif zone < 0.8:
-                        move_to_zone('social', zone)
-                    zone = proxemics.get_zone()
+                    right_location = random.choice(VOCABULARY["locations"])
+                    print("Pepper and patient are in the {}.".format(right_location))
                     wave_hello()
                     try:
                         pepper_cmd.robot.say("Hello there! I'm Pepper. What's your name?")
                     except AttributeError: print("Pepper (sim) says: \"Hello there! I'm Pepper. What's your name?\"")
                     except Exception as e_say: print("Error during initial say: {}".format(e_say))
                     reset_arm()
-                    user_name_input = get_user_input(["names"])
                     #user_name_input = pepper_cmd.robot.asr(["names"], timeout=10)
                     #print("[Main] User input: {}".format(user_name_input))
-                    #user_name_input = get_user_input(["names"])
+                    user_name_input = get_user_input(["names"])
 
                     if user_name_input in USER_DATABASE:
                         user_info = USER_DATABASE[user_name_input]
@@ -504,7 +474,7 @@ def interaction_flow():
                     else:
                         selected_passion = "fruits" # Default passion
                         selected_name = user_name_input if user_name_input else "friend" # Use the input or a fallback
-                        greeting_unknown = "Hello {}! It's a pleasure to meet you.".format(selected_name)
+                        greeting_unknown = "Hello {}! It's a pleasure to meet you. Today, we can try a fun fruit memory game if you like.".format(selected_name)
                         try: pepper_cmd.robot.say(greeting_unknown)
                         except AttributeError: print("Pepper (sim) says: \"{}\"".format(greeting_unknown))
 
@@ -513,16 +483,14 @@ def interaction_flow():
                     if selected_passion:
                         WebSocketServer.send_to_all_clients('theme {}'.format(selected_passion))
 
-                    response = get_user_input(["yes"])
-                    #response = pepper_cmd.robot.asr(["yes"], timeout=10)
-                    if response in VOCABULARY["yes"]:
+                    response = get_user_input(["yes", "no"])
+                    if any(word in response.lower() for word in VOCABULARY["yes"]):
+                    #if response in VOCABULARY["yes"]:
                     #if "yes" in response:
-                        #move_to_zone('social', proxemics.get_zone()); proxemics.set_distance(1.5)
-                        move_to_zone('social', zone)
-                        zone = proxemics.get_zone()
+                        move_to_zone('social', proxemics.get_zone()); proxemics.set_distance(1.5)
+
                         if build_trust():
-                            move_to_zone('personal', zone)
-                            #move_to_zone('personal', proxemics.get_zone()); proxemics.set_distance(0.8)
+                            move_to_zone('personal', proxemics.get_zone()); proxemics.set_distance(0.8)
                             head_nod_behavior = "move_head_yesno-173088/behavior_1"
                             if behavior_manager:
                                 try:
@@ -530,15 +498,23 @@ def interaction_flow():
                                         behavior_manager.startBehavior(head_nod_behavior)
                                 except Exception: pass
 
-                            if not assess_confusion():
+                            if not assess_confusion(right_location):
                                 game_proposal_text = "Since you seem to enjoy {}, would you like to play a memory game about {}?".format(selected_passion, selected_passion)
                                 try:
                                     pepper_cmd.robot.say(game_proposal_text)
                                 except AttributeError: print("Pepper (sim) says: \"{}\"".format(game_proposal_text))
+                                
+                                # Clear queue before starting new game
+                                while not game_result_queue.empty():
+                                    try:
+                                        game_result_queue.get_nowait()
+                                    except Empty:
+                                        break
 
                                 game_choice_response = get_user_input(["yes"])
-                                #game_choice_response = pepper_cmd.robot.asr(["yes"], timeout=10)
-                                if game_choice_response in VOCABULARY["yes"]:
+                                
+                                if any(word in game_choice_response.lower() for word in VOCABULARY["yes"]):
+                                #if "yes" in game_choice_response:
                                     # --- GAME LOOP START ---
                                     wave_hello()
                                     game_start_text = "Great! Touch my face and let's play the {} game together.".format(selected_passion)
@@ -546,11 +522,11 @@ def interaction_flow():
                                         pepper_cmd.robot.say(game_start_text)
                                     except AttributeError: print("Pepper (sim) says: \"{}\"".format(game_start_text))
                                     reset_arm()
-
-                                    if not game_result_queue.empty():
-                                        try:
-                                            while not game_result_queue.empty(): game_result_queue.get_nowait()
-                                        except Empty: pass
+                                    print("[DEBUG] Starting new game - queue empty:", game_result_queue.empty())
+                                    #if not game_result_queue.empty():
+                                     #   try:
+                                      #      while not game_result_queue.empty(): game_result_queue.get_nowait()
+                                       # except Empty: pass
 
                                     script_dir = os.path.dirname(os.path.abspath(__file__))
                                     html_file_path = os.path.abspath(os.path.join(script_dir, 'index.html'))
@@ -579,7 +555,7 @@ def interaction_flow():
                                     game_outcome = None
                                     try:
                                         game_outcome = game_result_queue.get(block=True, timeout=900)
-                                        print("[Main] Received game outcome from queue: '{}'".format(game_outcome))
+                                        print("[DEBUG] Game outcome received:", game_outcome)
                                     except Empty:
                                         print("[Main] Timed out waiting for game result.")
                                         try: pepper_cmd.robot.say("It looks like the game finished, or we ran out of time. I hope you had fun!")
@@ -588,7 +564,7 @@ def interaction_flow():
                                          print("[Main] Error waiting for game result queue: {}".format(e_queue))
                                          try: pepper_cmd.robot.say("Something went wrong while waiting for the game result.")
                                          except AttributeError: print("Pepper (sim) says: \"Something went wrong while waiting for the game result.\"")
-
+                                    #print("[DEBUG] Game outcome received:".format(game_outcome))
                                     outcome_speech = ""
                                     if game_outcome == "win":
                                         user_wins += 1
@@ -608,46 +584,49 @@ def interaction_flow():
 
                                     if outcome_speech:
                                         try:
+                                            print("vincita")
                                             pepper_cmd.robot.say(outcome_speech)
+                                            
                                         except AttributeError: print("Pepper (sim) says: \"{}\"".format(outcome_speech))
 
                                     WebSocketServer.send_to_all_clients('score {},{},{}'.format(user_wins, pepper_wins, ties))
                                     time.sleep(2)
-                                    move_to_zone('social', zone)
-                                    #move_to_zone('social', proxemics.get_zone())
-                                    #proxemics.set_distance(1.5)
+                                    move_to_zone('social', proxemics.get_zone())
+                                    proxemics.set_distance(1.5)
 
                                 else: # User doesn't want to play
                                     decline_play_text = "Maybe another time then."
                                     try:
                                         pepper_cmd.robot.say(decline_play_text)
                                     except AttributeError: print("Pepper (sim) says: \"{}\"".format(decline_play_text))
-                                    move_to_zone('social', zone)
-                                    #move_to_zone('social', proxemics.get_zone())
-                                    #proxemics.set_distance(1.5)
+                                    move_to_zone('social', proxemics.get_zone())
+                                    proxemics.set_distance(1.5)
                             else: # User appears confused
                                 confused_text = "Let me get a human assistant for you. I'll step back."
                                 try:
                                     pepper_cmd.robot.say(confused_text)
                                 except AttributeError: print("Pepper (sim) says: \"{}\"".format(confused_text))
-                                move_to_zone('public', zone)
-                                #move_to_zone('public', proxemics.get_zone())
-                                #proxemics.set_distance(3.6)
+                                move_to_zone('public', proxemics.get_zone())
+                                proxemics.set_distance(3.6)
+                                close()
+                                break
                         else: # Trust not built
                             no_trust_text = "I'll give you some space for now."
                             try:
                                 pepper_cmd.robot.say(no_trust_text)
                             except AttributeError: print("Pepper (sim) says: \"{}\"".format(no_trust_text))
                             if proxemics.get_zone() != 'public':
-                                move_to_zone('public', zone)
-                                #move_to_zone('public', proxemics.get_zone())
-                                #proxemics.set_distance(3.6)
+                                move_to_zone('public', proxemics.get_zone())
+                                proxemics.set_distance(3.6)
+                            close()
+                            break    
                     else: # User does not want Pepper to approach
-                        decline_approach_text = "Okay, I'll stay here. Have a nice day!"
+                        #decline_approach_text = "Okay, I'll stay here. Have a nice day!"
                         try:
-                            pepper_cmd.robot.say(decline_approach_text)
-                            move_to_zone('public', zone)    
-                        except AttributeError: print("Pepper (sim) says: \"{}\"".format(decline_approach_text))
+                            pepper_cmd.robot.say("Okay, I'll stay here. Have a nice day!")
+                            close()
+                            break
+                        except AttributeError: print("attribute error")
 
                 else: # If a name is already set, Pepper is just waiting for the next interaction
                     # This is where Pepper would idle or react to other input / backend signals
@@ -668,9 +647,7 @@ def interaction_flow():
                 break # Exit the while loop on unexpected error
 
     finally:
-        print("exiting...")
-        if 'proxemics_info' in globals():
-            proxemics_info.stop_sensors()
+        print("Entering cleanup phase...")
         try:
             # Attempt to stop the Tornado IOLoop gracefully
             # This needs to be done on the IOLoop's thread
@@ -679,13 +656,13 @@ def interaction_flow():
             time.sleep(0.1)
 
             if initial_connection_successful and 'end' in globals() and callable(end) and end != end_dummy:
-                print("Closing connection...")
+                print("Closing Pepper connection...")
                 if motion_service:
                     try: motion_service.rest()
                     except Exception as e: print("Error during final rest: {}".format(e))
                 end()
         except Exception as e:
-            print("Error in existing: {}".format(e))
+            print("Error during final cleanup: {}".format(e))
         time.sleep(1)
 
 
